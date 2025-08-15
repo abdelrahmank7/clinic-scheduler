@@ -15,8 +15,6 @@ import {
 import { signOut } from "firebase/auth";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-
-// Shadcn UI components
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,8 +25,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "../components/hooks/use-toast";
 import { Card } from "@/components/ui/card";
-
-// Custom components
 import AppointmentForm from "../components/Appointments/AppointmentForm";
 import ClientSelector from "../components/Clients/ClientSelector";
 import CalendarView from "../components/Calendar/CalendarView";
@@ -40,7 +36,6 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isOverviewOpen, setIsOverviewOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -48,7 +43,6 @@ function DashboardPage() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedAppointmentForOverview, setSelectedAppointmentForOverview] =
     useState(null);
-
   const [calendarRange, setCalendarRange] = useState({
     start: moment().startOf("month").toDate(),
     end: moment().endOf("month").toDate(),
@@ -103,7 +97,6 @@ function DashboardPage() {
     }
   };
 
-  // All other handler functions remain the same...
   const handleSelectSlot = ({ start, end }) => {
     setSelectedSlot({ start, end });
     setIsFormOpen(true);
@@ -141,14 +134,29 @@ function DashboardPage() {
   const handleEventDrop = async ({ event, start, end }) => {
     /* ... */
   };
+
   const updateAppointmentStatus = async (appointmentId, status) => {
-    /* ... */
+    try {
+      const appointmentDoc = doc(db, "appointments", appointmentId);
+      await updateDoc(appointmentDoc, { status: status });
+      toast({
+        title: "Appointment status updated",
+        description: `Appointment marked as ${status}.`,
+      });
+    } catch (error) {
+      console.error("Error updating appointment status: ", error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update appointment status.",
+        variant: "destructive",
+      });
+    }
   };
+
   const eventPropGetter = (event) => {
     /* ... */
   };
 
-  // This function is key for the workflow
   const handleSelectClient = (client) => {
     setSelectedClient(client);
     toast({
@@ -167,7 +175,6 @@ function DashboardPage() {
 
   return (
     <div className="w-full gradient-background min-h-screen p-6">
-      {/* Style tag remains the same... */}
       <div className="container mx-auto bg-card rounded-xl shadow-lg p-6 flex flex-col min-h-[calc(100vh-48px)]">
         <div className="flex justify-between items-center mb-6 border-b pb-4">
           <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -187,10 +194,11 @@ function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-grow">
           <div className="md:col-span-1">
             <Card className="p-4 shadow-sm h-full">
-              {/* 👇 FIX: Pass the showAddButton prop as false */}
               <ClientSelector
                 onSelectClient={handleSelectClient}
                 showAddButton={false}
+                // 👇 Pass the function down as a prop
+                onUpdateAppointmentStatus={updateAppointmentStatus}
               />
             </Card>
           </div>
@@ -234,7 +242,6 @@ function DashboardPage() {
             appointmentToEdit={editingAppointment}
             onAppointmentAdded={handleFormClose}
             onAppointmentDeleted={handleFormClose}
-            // This prop passes the selected client to the form
             selectedClient={selectedClient}
           />
         </DialogContent>

@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Allow any authenticated user to read and write clients
+    match /clients/{clientId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Allow any authenticated user to read and write appointments
+    match /appointments/{appointmentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Allow any authenticated user to read and write templates
+    match /whatsapp_templates/{templateId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

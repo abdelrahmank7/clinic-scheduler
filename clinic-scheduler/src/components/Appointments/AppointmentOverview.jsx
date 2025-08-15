@@ -1,4 +1,5 @@
 // src/components/Appointments/AppointmentOverview.jsx
+
 import React from "react";
 import {
   Dialog,
@@ -10,18 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Timestamp } from "firebase/firestore";
 
-// Helper function to format a string to title case
 const toTitleCase = (str) => {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
-// Helper function to safely get a JS Date object from a Firestore Timestamp or a JS Date
 const getJsDate = (date) => {
   return date instanceof Timestamp ? date.toDate() : date;
 };
 
-// Helper function for native date formatting
 const formatDateTime = (date) => {
   const options = {
     weekday: "short",
@@ -84,10 +82,10 @@ const AppointmentOverview = ({ appointment, isOpen, onClose, onEdit }) => {
           <Button onClick={onClose} variant="secondary">
             Close
           </Button>
+          {/* 👇 FIX: Removed the extra onClose() call from this button */}
           <Button
             onClick={() => {
               onEdit(appointment);
-              onClose();
             }}
           >
             Edit

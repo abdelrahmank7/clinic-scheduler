@@ -75,14 +75,14 @@ function ContextMenu({
         <MessageCircle className="h-4 w-4 mr-2" />
         Send WhatsApp
       </Button>
-      <Button
+      {/* <Button
         variant="ghost"
         className="justify-start text-sm"
         onClick={onEdit}
       >
         <Pencil className="h-4 w-4 mr-2" />
         Edit Client
-      </Button>
+      </Button> */}
       <Button
         variant="ghost"
         className="justify-start text-sm"

@@ -128,33 +128,86 @@ function DashboardPage() {
     setIsOverviewOpen(false);
     setSelectedAppointmentForOverview(null);
   };
+
   const handleEventResize = async ({ event, start, end }) => {
-    /* ... */
+    try {
+      const appointmentDoc = doc(db, "appointments", event.id);
+      await updateDoc(appointmentDoc, { start, end });
+      toast({
+        title: "Appointment Resized",
+        description: "The appointment time has been updated.",
+      });
+    } catch (error) {
+      console.error("Error resizing appointment: ", error);
+      toast({
+        title: "Update Failed",
+        description: "Could not save the new appointment time.",
+        variant: "destructive",
+      });
+    }
   };
+
   const handleEventDrop = async ({ event, start, end }) => {
-    /* ... */
+    try {
+      const appointmentDoc = doc(db, "appointments", event.id);
+      await updateDoc(appointmentDoc, { start, end });
+      toast({
+        title: "Appointment Moved",
+        description: "The appointment has been moved successfully.",
+      });
+    } catch (error) {
+      console.error("Error moving appointment: ", error);
+      toast({
+        title: "Update Failed",
+        description: "Could not save the new appointment location.",
+        variant: "destructive",
+      });
+    }
   };
 
   const updateAppointmentStatus = async (appointmentId, status) => {
     try {
       const appointmentDoc = doc(db, "appointments", appointmentId);
-      await updateDoc(appointmentDoc, { status: status });
+      await updateDoc(appointmentDoc, { status });
       toast({
         title: "Appointment status updated",
         description: `Appointment marked as ${status}.`,
       });
     } catch (error) {
       console.error("Error updating appointment status: ", error);
-      toast({
-        title: "Update failed",
-        description: "Failed to update appointment status.",
-        variant: "destructive",
-      });
+      toast({ title: "Update failed", variant: "destructive" });
     }
   };
 
   const eventPropGetter = (event) => {
-    /* ... */
+    const isPast = moment(event.end).isBefore(moment());
+    let style = {
+      backgroundColor: "#1565c0", // Default blue
+      borderColor: "#0d47a1",
+      color: "white",
+    };
+
+    switch (event.status) {
+      case "done":
+        style.backgroundColor = isPast ? "#047857" : "#10b981";
+        style.borderColor = "#047857";
+        break;
+      case "missed":
+        style.backgroundColor = isPast ? "#b91c1c" : "#ef4444";
+        style.borderColor = "#b91c1c";
+        break;
+      case "postponed":
+        style.backgroundColor = isPast ? "#c2410c" : "#f97316";
+        style.borderColor = "#c2410c";
+        break;
+      default:
+        if (isPast) {
+          style.backgroundColor = "#6b7280";
+          style.borderColor = "#4b5563";
+        }
+        break;
+    }
+    return { style };
   };
 
   const handleSelectClient = (client) => {
@@ -192,17 +245,18 @@ function DashboardPage() {
         {error && <p className="text-red-500 mb-4">{error}</p>}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-grow">
+          {/* 👇 FIX: Changed md-col-span-1 to md:col-span-1 */}
           <div className="md:col-span-1">
             <Card className="p-4 shadow-sm h-full">
               <ClientSelector
                 onSelectClient={handleSelectClient}
                 showAddButton={false}
-                // 👇 Pass the function down as a prop
                 onUpdateAppointmentStatus={updateAppointmentStatus}
               />
             </Card>
           </div>
 
+          {/* 👇 FIX: Changed md-col-span-3 to md:col-span-3 */}
           <div className="md:col-span-3 flex flex-col">
             <CalendarView
               events={appointments}
@@ -212,6 +266,9 @@ function DashboardPage() {
               onEventResize={handleEventResize}
               onEventDrop={handleEventDrop}
               onNavigate={handleNavigate}
+              onMarkDone={(id) => updateAppointmentStatus(id, "done")}
+              onMarkMissed={(id) => updateAppointmentStatus(id, "missed")}
+              onMarkPostponed={(id) => updateAppointmentStatus(id, "postponed")}
             />
           </div>
         </div>

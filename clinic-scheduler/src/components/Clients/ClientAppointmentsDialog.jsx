@@ -12,7 +12,9 @@ import { db } from "../../firebase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button"; // 👇 Import Button
+import { Button } from "@/components/ui/button";
+import moment from "moment";
+import { cn } from "@/lib/utils";
 
 const formatDateTime = (date) => {
   const options = {
@@ -37,7 +39,6 @@ const toTitleCase = (str) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
-// 👇 Accept the new onUpdateStatus prop
 function ClientAppointmentsDialog({ clientId, onUpdateStatus }) {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,18 +55,47 @@ function ClientAppointmentsDialog({ clientId, onUpdateStatus }) {
       where("clientId", "==", clientId),
       orderBy("start", "desc")
     );
-    const unsubscribe = onSnapshot(appointmentsQuery, (querySnapshot) => {
-      const appointmentsData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        start: doc.data().start.toDate(),
-        end: doc.data().end.toDate(),
-      }));
-      setAppointments(appointmentsData);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      appointmentsQuery,
+      (querySnapshot) => {
+        const appointmentsData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          start: doc.data().start.toDate(),
+          end: doc.data().end.toDate(),
+        }));
+        setAppointments(appointmentsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching appointments:", error);
+        setLoading(false);
+      }
+    );
     return () => unsubscribe();
   }, [clientId]);
+
+  const getStatusClass = (status, endTime) => {
+    const isPast = moment(endTime).isBefore(moment());
+    switch (status) {
+      case "done":
+        return isPast
+          ? "bg-green-800 hover:bg-green-800"
+          : "bg-green-600 hover:bg-green-600";
+      case "missed":
+        return isPast
+          ? "bg-red-800 hover:bg-red-800"
+          : "bg-red-600 hover:bg-red-600";
+      case "postponed":
+        return isPast
+          ? "bg-orange-800 hover:bg-orange-800"
+          : "bg-orange-500 hover:bg-orange-500";
+      default:
+        return isPast
+          ? "bg-gray-500 hover:bg-gray-500"
+          : "bg-gray-400 hover:bg-gray-400 text-black";
+    }
+  };
 
   if (loading) {
     return (
@@ -95,20 +125,16 @@ function ClientAppointmentsDialog({ clientId, onUpdateStatus }) {
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-500">Status:</span>
                   <Badge
-                    variant={
-                      appointment.status === "done"
-                        ? "success"
-                        : appointment.status === "missed"
-                        ? "destructive"
-                        : "outline"
-                    }
+                    className={cn(
+                      "text-white",
+                      getStatusClass(appointment.status, appointment.end)
+                    )}
                   >
                     {appointment.status
                       ? toTitleCase(appointment.status)
                       : "Pending"}
                   </Badge>
                 </div>
-                {/* 👇 Add the buttons to change the status */}
                 <div className="flex items-center gap-1">
                   <Button
                     size="xs"

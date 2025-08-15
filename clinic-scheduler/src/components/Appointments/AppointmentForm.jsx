@@ -56,7 +56,6 @@ function AppointmentForm({
   const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] =
     useState(false);
 
-  // Effect 1: This fetches the list of clients for the dropdown. It's perfect.
   useEffect(() => {
     const clientsCollection = collection(db, "clients");
     const q = query(clientsCollection, orderBy("name"));
@@ -78,12 +77,8 @@ function AppointmentForm({
     return () => unsubscribe();
   }, []);
 
-  // Effect 2: This sets the form's state.
   useEffect(() => {
-    // 👇 FIX: Add this check. Don't try to set the client until the list has loaded.
-    if (isClientLoading) {
-      return;
-    }
+    if (isClientLoading) return;
 
     if (appointmentToEdit) {
       setClientId(appointmentToEdit.clientId);
@@ -104,7 +99,6 @@ function AppointmentForm({
       setStartDateTime(initialStart ? formatDateForInput(initialStart) : "");
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
     }
-    // 👇 FIX: Update the dependency array to include the loading state.
   }, [
     appointmentToEdit,
     selectedClient,
@@ -113,7 +107,6 @@ function AppointmentForm({
     isClientLoading,
   ]);
 
-  // All other functions (handleSubmit, handleDeleteClick, etc.) remain the same...
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!clientId) {
@@ -134,6 +127,7 @@ function AppointmentForm({
         end: endDateObj,
         notes,
       };
+
       if (appointmentToEdit) {
         await updateDoc(
           doc(db, "appointments", appointmentToEdit.id),
@@ -163,8 +157,34 @@ function AppointmentForm({
   const handleDeleteClick = () => {
     setIsConfirmDeleteDialogOpen(true);
   };
+
+  // 👇 FIX: This function now contains the complete logic for deleting an appointment
   const handleConfirmDelete = async () => {
-    /* ... */
+    if (!appointmentToEdit) return;
+
+    setLoading(true);
+    setIsConfirmDeleteDialogOpen(false);
+
+    try {
+      await deleteDoc(doc(db, "appointments", appointmentToEdit.id));
+      toast({
+        title: "Success",
+        description: "Appointment deleted successfully!",
+        variant: "destructive",
+      });
+      if (onAppointmentDeleted) {
+        onAppointmentDeleted(); // This closes the form dialog
+      }
+    } catch (err) {
+      console.error("Error deleting appointment:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete appointment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectPlaceholder = isClientLoading
@@ -206,8 +226,6 @@ function AppointmentForm({
             </Select>
           )}
         </div>
-
-        {/* The rest of the form remains the same */}
         <div className="grid w-full items-center gap-1.5">
           <Label htmlFor="appointmentTitle">Title:</Label>
           <Select

@@ -4,17 +4,11 @@ import React, { useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
-
-// <-- UPDATED: Use a standard import for the locale file
 import { format, parse, startOfWeek, getDay } from "date-fns";
-import enUS from "date-fns/locale/en-US"; // <-- NEW: Import the locale using ES modules
-
+import enUS from "date-fns/locale/en-US";
 import AppointmentContextMenu from "./AppointmentContextMenu";
 
-// <-- UPDATED: Define the localizer with the imported locale object
-const locales = {
-  "en-US": enUS,
-};
+const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -38,14 +32,22 @@ const EventContent = ({ event }) => {
   );
 };
 
-const EventWrapper = ({ event, children, onContextMenu }) => {
-  return <div onContextMenu={(e) => onContextMenu(e, event)}>{children}</div>;
+// 👇 FIX: The onDoubleClick event handler is now passed to this wrapper
+const EventWrapper = ({ event, children, onContextMenu, onDoubleClick }) => {
+  return (
+    <div
+      onContextMenu={(e) => onContextMenu(e, event)}
+      onDoubleClick={() => onDoubleClick(event)} // Trigger the event from here
+    >
+      {children}
+    </div>
+  );
 };
 
 function CalendarView({
   events,
   onSelectSlot,
-  onSelectEvent,
+  onSelectEvent, // This is our double-click handler from the Dashboard
   eventPropGetter,
   onEventResize,
   onEventDrop,
@@ -92,7 +94,8 @@ function CalendarView({
         selectable
         resizable
         onSelectSlot={onSelectSlot}
-        onDoubleClickEvent={onSelectEvent}
+        // 👇 FIX: Clicks are now handled reliably by our custom wrapper component
+        onDoubleClickEvent={() => {}}
         onSelectEvent={() => {}}
         eventPropGetter={eventPropGetter}
         view={view}
@@ -103,8 +106,13 @@ function CalendarView({
         onEventDrop={onEventDrop}
         components={{
           event: EventContent,
+          // 👇 FIX: Pass the onSelectEvent function to our wrapper's onDoubleClick prop
           eventWrapper: (props) => (
-            <EventWrapper {...props} onContextMenu={handleContextMenu} />
+            <EventWrapper
+              {...props}
+              onContextMenu={handleContextMenu}
+              onDoubleClick={onSelectEvent}
+            />
           ),
         }}
       />

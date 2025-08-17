@@ -36,27 +36,29 @@ function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
-        />
-        <Route
-          path="/dashboard"
-          element={user ? <DashboardPage /> : <Navigate to="/" />}
-        />
-        <Route
-          path="/clients"
-          element={user ? <ClientsPage /> : <Navigate to="/" />}
-        />
-        <Route
-          path="/test-index"
-          element={user ? <IndexTestPage /> : <Navigate to="/" />}
-        />
-      </Routes>
-      <Toaster />
-    </Router>
+    <BrowserRouter basename="/clinic-scheduler/">
+      <Router>
+        <Routes>
+          <Route
+            path="/"
+            element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
+          />
+          <Route
+            path="/dashboard"
+            element={user ? <DashboardPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/clients"
+            element={user ? <ClientsPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/test-index"
+            element={user ? <IndexTestPage /> : <Navigate to="/" />}
+          />
+        </Routes>
+        <Toaster />
+      </Router>
+    </BrowserRouter>
   );
 }
 

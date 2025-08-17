@@ -1,11 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -36,28 +31,27 @@ function App() {
   }
 
   return (
+    // 👇 FIX: Removed the extra <Router> tag. You only need one BrowserRouter.
     <BrowserRouter basename="/clinic-scheduler/">
-      <Router>
-        <Routes>
-          <Route
-            path="/"
-            element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
-          />
-          <Route
-            path="/dashboard"
-            element={user ? <DashboardPage /> : <Navigate to="/" />}
-          />
-          <Route
-            path="/clients"
-            element={user ? <ClientsPage /> : <Navigate to="/" />}
-          />
-          <Route
-            path="/test-index"
-            element={user ? <IndexTestPage /> : <Navigate to="/" />}
-          />
-        </Routes>
-        <Toaster />
-      </Router>
+      <Routes>
+        <Route
+          path="/"
+          element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
+        />
+        <Route
+          path="/dashboard"
+          element={user ? <DashboardPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/clients"
+          element={user ? <ClientsPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/test-index"
+          element={user ? <IndexTestPage /> : <Navigate to="/" />}
+        />
+      </Routes>
+      <Toaster />
     </BrowserRouter>
   );
 }

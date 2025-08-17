@@ -29,11 +29,8 @@ function ClientList({ clients, onEdit, onDelete, onView }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {clients.map((client) => {
-        // FIX: The hook was moved from inside the map loop.
-        // We now just call the function directly.
         const age = calculateAge(client.birthDate);
 
-        // IMPROVEMENT: Use default values for empty fields
         const email = client.email || "N/A";
         const phoneNumber = client.phoneNumber || "N/A";
         const sportAndClub =

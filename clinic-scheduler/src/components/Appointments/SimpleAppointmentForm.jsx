@@ -53,7 +53,7 @@ function SimpleAppointmentForm({ onSave, initialData, onCancel }) {
         title: "Appointment created",
         description: `Appointment for ${initialData.clientName} has been scheduled.`,
       });
-      onSave(); // Close the form
+      onSave();
     } catch (err) {
       console.error("Error adding appointment:", err);
       toast({

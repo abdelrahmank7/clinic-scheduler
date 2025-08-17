@@ -31,10 +31,8 @@ function LoginPage() {
     let emailToLogin = usernameOrEmail;
 
     try {
-      // Check if the input is a valid email format
       const isEmail = emailToLogin.includes("@");
       if (!isEmail) {
-        // If not an email, assume it's a username and query Firestore
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("username", "==", emailToLogin));
         const querySnapshot = await getDocs(q);
@@ -43,7 +41,6 @@ function LoginPage() {
           throw new Error("auth/user-not-found");
         }
 
-        // Get the email from the first matching user
         emailToLogin = querySnapshot.docs[0].data().email;
       }
 
@@ -58,14 +55,12 @@ function LoginPage() {
       let errorMessage =
         "Invalid username/email or password. Please try again.";
 
-      // Provide more specific error messages for debugging
       if (
         err.code === "auth/user-not-found" ||
         err.code === "auth/wrong-password"
       ) {
         errorMessage = "Invalid username/email or password. Please try again.";
       } else if (err.code) {
-        // Generic error for other Firebase auth issues
         errorMessage = `An error occurred: ${err.message}`;
       }
 

@@ -103,7 +103,6 @@ function ContextMenu({
   );
 }
 
-// 👇 Accept the new onUpdateAppointmentStatus prop
 function ClientSelector({
   onSelectClient,
   showAddButton = true,
@@ -261,7 +260,6 @@ function ClientSelector({
           </DialogHeader>
           <ClientAppointmentsDialog
             clientId={activeDialog.client?.id}
-            // 👇 Pass the function down to the next component
             onUpdateStatus={onUpdateAppointmentStatus}
           />
         </DialogContent>

@@ -158,7 +158,6 @@ function AppointmentForm({
     setIsConfirmDeleteDialogOpen(true);
   };
 
-  // 👇 FIX: This function now contains the complete logic for deleting an appointment
   const handleConfirmDelete = async () => {
     if (!appointmentToEdit) return;
 
@@ -173,7 +172,7 @@ function AppointmentForm({
         variant: "destructive",
       });
       if (onAppointmentDeleted) {
-        onAppointmentDeleted(); // This closes the form dialog
+        onAppointmentDeleted();
       }
     } catch (err) {
       console.error("Error deleting appointment:", err);

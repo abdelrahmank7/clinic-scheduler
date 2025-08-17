@@ -4,9 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "../hooks/use-toast"; // <-- NEW: Import the toast hook
+import { toast } from "../hooks/use-toast";
 
-// Helper function to validate email format
 const validateEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(String(email).toLowerCase());
@@ -50,7 +49,6 @@ function ClientForm({ clientToEdit, onSave }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // <-- UPDATED: Use toast for validation feedback
     if (!formData.name.trim()) {
       toast({
         title: "Validation Error",
@@ -81,7 +79,6 @@ function ClientForm({ clientToEdit, onSave }) {
       await onSave(formData);
     } catch (error) {
       console.error("Failed to save client:", error);
-      // <-- UPDATED: Use toast for error messages
       toast({
         title: "Error",
         description: "There was an error saving the client. Please try again.",
@@ -126,7 +123,7 @@ function ClientForm({ clientToEdit, onSave }) {
           <Input
             id="phoneNumber"
             name="phoneNumber"
-            type="tel" // <-- UPDATED: Use type="tel"
+            type="tel"
             value={formData.phoneNumber}
             onChange={handleChange}
             placeholder="e.g., 555-123-4567"
@@ -182,7 +179,7 @@ function ClientForm({ clientToEdit, onSave }) {
           <Input
             id="relativePhoneNumber"
             name="relativePhoneNumber"
-            type="tel" // <-- UPDATED: Use type="tel"
+            type="tel"
             value={formData.relativePhoneNumber}
             onChange={handleChange}
             placeholder="Relative's Phone Number"

@@ -3,7 +3,6 @@ const path = require("path");
 const serve = require("serve");
 const open = require("open");
 
-// __dirname is available in CommonJS context
 const distPath = path.join(__dirname, "dist");
 const PORT = 3000;
 

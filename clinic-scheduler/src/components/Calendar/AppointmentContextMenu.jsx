@@ -2,23 +2,21 @@
 
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Pencil, CheckCircle, XCircle, Clock } from "lucide-react"; // <-- NEW: Import icons
+import { Pencil, CheckCircle, XCircle, Clock } from "lucide-react";
 
 function AppointmentContextMenu({
   x,
   y,
   isVisible,
-  appointment, // <-- NEW: Receive appointment object
-  onClose, // <-- NEW: Add onClose handler
+  appointment,
+  onClose,
   onEdit,
   onMarkDone,
   onMarkMissed,
   onMarkPostponed,
 }) {
-  // <-- NEW: Handle outside clicks to close the menu
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      // Check if the click is outside the context menu
       if (
         isVisible &&
         event.target.closest(".appointment-context-menu") === null
@@ -40,7 +38,6 @@ function AppointmentContextMenu({
       className="fixed z-50 bg-white shadow-lg rounded-md p-2 flex flex-col gap-1 border appointment-context-menu"
       onClick={(e) => e.stopPropagation()} // Prevent click from bubbling up and closing immediately
     >
-      {/* <-- UPDATED: Add icons and simplified onClick handlers */}
       <Button
         variant="ghost"
         className="justify-start flex gap-2"

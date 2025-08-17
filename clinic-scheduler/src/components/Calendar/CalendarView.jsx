@@ -32,12 +32,11 @@ const EventContent = ({ event }) => {
   );
 };
 
-// 👇 FIX: The onDoubleClick event handler is now passed to this wrapper
 const EventWrapper = ({ event, children, onContextMenu, onDoubleClick }) => {
   return (
     <div
       onContextMenu={(e) => onContextMenu(e, event)}
-      onDoubleClick={() => onDoubleClick(event)} // Trigger the event from here
+      onDoubleClick={() => onDoubleClick(event)}
     >
       {children}
     </div>
@@ -47,7 +46,7 @@ const EventWrapper = ({ event, children, onContextMenu, onDoubleClick }) => {
 function CalendarView({
   events,
   onSelectSlot,
-  onSelectEvent, // This is our double-click handler from the Dashboard
+  onSelectEvent,
   eventPropGetter,
   onEventResize,
   onEventDrop,
@@ -94,7 +93,6 @@ function CalendarView({
         selectable
         resizable
         onSelectSlot={onSelectSlot}
-        // 👇 FIX: Clicks are now handled reliably by our custom wrapper component
         onDoubleClickEvent={() => {}}
         onSelectEvent={() => {}}
         eventPropGetter={eventPropGetter}
@@ -106,7 +104,6 @@ function CalendarView({
         onEventDrop={onEventDrop}
         components={{
           event: EventContent,
-          // 👇 FIX: Pass the onSelectEvent function to our wrapper's onDoubleClick prop
           eventWrapper: (props) => (
             <EventWrapper
               {...props}

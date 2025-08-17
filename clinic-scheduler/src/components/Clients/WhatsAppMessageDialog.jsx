@@ -38,7 +38,7 @@ function WhatsAppMessageDialog({ client, isOpen, onClose }) {
   const [savedTemplates, setSavedTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [message, setMessage] = useState("");
-  const [viewMode, setViewMode] = useState("default"); // "default" | "add" | "edit"
+  const [viewMode, setViewMode] = useState("default");
   const [editMessageText, setEditMessageText] = useState("");
 
   const templatesCollectionRef = collection(db, "whatsapp_templates");
@@ -165,7 +165,6 @@ function WhatsAppMessageDialog({ client, isOpen, onClose }) {
     }
   }, [selectedTemplateId, savedTemplates, client]);
 
-  // Clear selected template if the user starts typing a custom message
   const handleMessageChange = (e) => {
     setMessage(e.target.value);
     if (selectedTemplateId) {

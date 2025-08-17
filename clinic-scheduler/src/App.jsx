@@ -31,7 +31,6 @@ function App() {
   }
 
   return (
-    // 👇 FIX: Removed the extra <Router> tag. You only need one BrowserRouter.
     <BrowserRouter basename="/clinic-scheduler/">
       <Routes>
         <Route

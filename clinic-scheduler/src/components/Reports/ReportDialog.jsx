@@ -185,7 +185,6 @@ function ReportDialog() {
     };
   };
 
-  // 👇 FIX: This function is updated for better browser compatibility.
   const exportToHtml = (appointments) => {
     const getRowColor = (status) => {
       switch (status) {

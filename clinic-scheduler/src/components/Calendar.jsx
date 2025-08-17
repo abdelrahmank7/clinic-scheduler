@@ -21,7 +21,7 @@ import {
   query,
   orderBy,
   where,
-} from "firebase/firestore"; // <-- UPDATED: Import 'where'
+} from "firebase/firestore";
 
 const Calendar = ({ selectedClient, onClientSelect }) => {
   const [appointments, setAppointments] = useState([]);
@@ -32,20 +32,17 @@ const Calendar = ({ selectedClient, onClientSelect }) => {
   const [appointmentToEdit, setAppointmentToEdit] = useState(null);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
 
-  // <-- UPDATED: useEffect now depends on selectedClient
   useEffect(() => {
     const appointmentsCollectionRef = collection(db, "appointments");
     let q;
 
     if (selectedClient) {
-      // If a client is selected, filter appointments by clientId
       q = query(
         appointmentsCollectionRef,
         where("clientId", "==", selectedClient.id),
         orderBy("start", "asc")
       );
     } else {
-      // Otherwise, fetch all appointments
       q = query(appointmentsCollectionRef, orderBy("start", "asc"));
     }
 
@@ -60,7 +57,7 @@ const Calendar = ({ selectedClient, onClientSelect }) => {
     });
 
     return () => unsubscribe();
-  }, [selectedClient]); // <-- UPDATED: Add selectedClient to dependency array
+  }, [selectedClient]);
 
   const handleDateClick = (arg) => {
     setAppointmentToEdit(null);

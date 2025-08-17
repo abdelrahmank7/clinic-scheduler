@@ -68,27 +68,22 @@ export const checkForConflicts = async (data, appointmentId = null) => {
       appointmentsRef,
       where("clientId", "==", clientId),
       where("userId", "==", userId),
-      // Optimization: Fetch only potentially conflicting appointments
       where("start", "<", end)
     );
 
     const querySnapshot = await getDocs(q);
     const hasConflict = querySnapshot.docs.some((docSnapshot) => {
-      // Skip checking against itself if editing
       if (appointmentId && docSnapshot.id === appointmentId) return false;
 
       const existingAppt = docSnapshot.data();
       const docEnd = existingAppt.end.toDate();
 
-      // Check for overlap: (StartA < EndB) and (EndA > StartB)
-      // We already checked start < end in the query, so we just need to check the other half.
       return docEnd > start;
     });
 
     return hasConflict;
   } catch (error) {
     console.error("Error checking for appointment conflicts:", error);
-    // Fail gracefully, don't prevent saving due to a check error
     return false;
   }
 };

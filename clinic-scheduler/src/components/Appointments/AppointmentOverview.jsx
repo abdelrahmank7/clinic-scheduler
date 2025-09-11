@@ -11,6 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Timestamp } from "firebase/firestore";
 
+import PaymentStatusBadge from "../Payment/PaymentStatusBadge";
+import PackagePaymentTracker from "../Payment/PackagePaymentTracker";
+import CollectPaymentDialog from "../Payment/CollectPaymentDialog";
+
 const toTitleCase = (str) => {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -77,7 +81,26 @@ const AppointmentOverview = ({ appointment, isOpen, onClose, onEdit }) => {
               {notes}
             </p>
           </div>
+          <div>
+            <Label className="font-semibold">Payment Status</Label>
+            <div className="mt-1">
+              <PaymentStatusBadge
+                status={appointment.paymentStatus}
+                amount={appointment.amount}
+              />
+            </div>
+          </div>
+
+          {appointment.isPackage && (
+            <div>
+              <Label className="font-semibold">Package Details</Label>
+              <PackagePaymentTracker appointment={appointment} />
+            </div>
+          )}
         </div>
+        <CollectPaymentDialog appointment={appointment}>
+          <Button variant="outline">Collect Payment</Button>
+        </CollectPaymentDialog>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} variant="secondary">
             Close

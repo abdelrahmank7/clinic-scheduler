@@ -26,6 +26,9 @@ import {
 } from "@/components/ui/select";
 import ConfirmationDialog from "@/components/ui/ConfirmationDialog";
 
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import PaymentStatusBadge from "../Payment/PaymentStatusBadge";
+
 const formatDateForInput = (date) => {
   if (!date) return "";
   const d = new Date(date);
@@ -55,6 +58,11 @@ function AppointmentForm({
   const [isClientLoading, setIsClientLoading] = useState(true);
   const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] =
     useState(false);
+  const [amount, setAmount] = useState(0);
+  const [paymentStatus, setPaymentStatus] = useState("unpaid");
+  const [isPackage, setIsPackage] = useState(false);
+  const [packageSessions, setPackageSessions] = useState(1);
+  const [sessionsPaid, setSessionsPaid] = useState(0);
 
   useEffect(() => {
     const clientsCollection = collection(db, "clients");
@@ -86,18 +94,39 @@ function AppointmentForm({
       setStartDateTime(formatDateForInput(appointmentToEdit.start));
       setEndDateTime(formatDateForInput(appointmentToEdit.end));
       setNotes(appointmentToEdit.notes || "");
+
+      // Add these lines for payment fields
+      setAmount(appointmentToEdit.amount || 0);
+      setPaymentStatus(appointmentToEdit.paymentStatus || "unpaid");
+      setIsPackage(appointmentToEdit.isPackage || false);
+      setPackageSessions(appointmentToEdit.packageSessions || 1);
+      setSessionsPaid(appointmentToEdit.sessionsPaid || 0);
     } else if (selectedClient) {
       setClientId(selectedClient.id);
       setTitle("Nutrition");
       setNotes("");
       setStartDateTime(initialStart ? formatDateForInput(initialStart) : "");
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
+
+      // Reset payment fields for new appointments
+      setAmount(0);
+      setPaymentStatus("unpaid");
+      setIsPackage(false);
+      setPackageSessions(1);
+      setSessionsPaid(0);
     } else {
       setClientId("");
       setTitle("Nutrition");
       setNotes("");
       setStartDateTime(initialStart ? formatDateForInput(initialStart) : "");
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
+
+      // Reset payment fields for new appointments
+      setAmount(0);
+      setPaymentStatus("unpaid");
+      setIsPackage(false);
+      setPackageSessions(1);
+      setSessionsPaid(0);
     }
   }, [
     appointmentToEdit,
@@ -126,6 +155,16 @@ function AppointmentForm({
         start: startDateObj,
         end: endDateObj,
         notes,
+        amount: parseFloat(amount),
+        paymentStatus,
+        isPackage,
+        packageSessions: isPackage ? parseInt(packageSessions) : 1,
+        sessionsPaid: isPackage
+          ? parseInt(sessionsPaid)
+          : paymentStatus === "paid"
+          ? 1
+          : 0,
+        lastPaymentUpdate: new Date(),
       };
 
       if (appointmentToEdit) {
@@ -262,6 +301,79 @@ function AppointmentForm({
             required
           />
         </div>
+        <div className="grid w-full items-center gap-1.5">
+          <Label htmlFor="amount">Amount ($)</Label>
+          <Input
+            type="number"
+            id="amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            min="0"
+            step="0.01"
+            required
+          />
+        </div>
+        <div className="grid w-full items-center gap-1.5">
+          <Label htmlFor="paymentStatus">Payment Status</Label>
+          <Select
+            value={paymentStatus}
+            onValueChange={(value) => setPaymentStatus(value)}
+            required
+          >
+            <SelectTrigger id="paymentStatus">
+              <SelectValue placeholder="Select payment status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="partial">Partial</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid w-full items-center gap-1.5">
+          <Label>Payment Type</Label>
+          <RadioGroup
+            value={isPackage ? "package" : "single"}
+            onValueChange={(value) => setIsPackage(value === "package")}
+            className="flex space-x-4"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="single" id="single" />
+              <Label htmlFor="single">Single Session</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="package" id="package" />
+              <Label htmlFor="package">Package</Label>
+            </div>
+          </RadioGroup>
+        </div>
+        {isPackage && (
+          <>
+            <div className="grid w-full items-center gap-1.5">
+              <Label htmlFor="packageSessions">Total Sessions in Package</Label>
+              <Input
+                type="number"
+                id="packageSessions"
+                value={packageSessions}
+                onChange={(e) => setPackageSessions(e.target.value)}
+                min="1"
+                required
+              />
+            </div>
+            <div className="grid w-full items-center gap-1.5">
+              <Label htmlFor="sessionsPaid">Sessions Paid For</Label>
+              <Input
+                type="number"
+                id="sessionsPaid"
+                value={sessionsPaid}
+                onChange={(e) => setSessionsPaid(e.target.value)}
+                min="0"
+                max={packageSessions}
+                required
+              />
+            </div>
+          </>
+        )}{" "}
         <div className="grid w-full items-center gap-1.5">
           <Label htmlFor="appointmentNotes">Notes (Optional):</Label>
           <Textarea

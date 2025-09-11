@@ -1,3 +1,5 @@
+//src/hooks/usePayments.js
+
 import { useState } from "react";
 import { db } from "../firebase";
 import { doc, updateDoc, collection, addDoc } from "firebase/firestore";

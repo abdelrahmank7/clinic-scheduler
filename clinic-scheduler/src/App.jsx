@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { auth } from "./firebase";
@@ -9,6 +8,9 @@ import DashboardPage from "./pages/DashboardPage";
 import { Toaster } from "@/components/ui/toaster";
 import ClientsPage from "./pages/ClientsPage";
 import IndexTestPage from "./pages/IndexTestPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import SettingsPage from "./pages/SettingsPage";
+import { ClinicProvider } from "@/contexts/ClinicContext";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -32,25 +34,35 @@ function App() {
 
   return (
     <BrowserRouter basename="/clinic-scheduler/">
-      <Routes>
-        <Route
-          path="/"
-          element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
-        />
-        <Route
-          path="/dashboard"
-          element={user ? <DashboardPage /> : <Navigate to="/" />}
-        />
-        <Route
-          path="/clients"
-          element={user ? <ClientsPage /> : <Navigate to="/" />}
-        />
-        <Route
-          path="/test-index"
-          element={user ? <IndexTestPage /> : <Navigate to="/" />}
-        />
-      </Routes>
-      <Toaster />
+      <ClinicProvider>
+        <Routes>
+          <Route
+            path="/"
+            element={user ? <Navigate to="/dashboard" /> : <LoginPage />}
+          />
+          <Route
+            path="/dashboard"
+            element={user ? <DashboardPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/clients"
+            element={user ? <ClientsPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/payments"
+            element={user ? <PaymentsPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/settings"
+            element={user ? <SettingsPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/test-index"
+            element={user ? <IndexTestPage /> : <Navigate to="/" />}
+          />
+        </Routes>
+        <Toaster />
+      </ClinicProvider>
     </BrowserRouter>
   );
 }

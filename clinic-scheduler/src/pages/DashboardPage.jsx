@@ -1,4 +1,4 @@
-// src/pages/DashboardPage.jsx
+//src/pages/DashboardPage.jsx
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import {
   updateDoc,
   doc,
   where,
+  limit,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import moment from "moment";
@@ -24,12 +25,19 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "../components/hooks/use-toast";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AppointmentForm from "../components/Appointments/AppointmentForm";
 import ClientSelector from "../components/Clients/ClientSelector";
 import CalendarView from "../components/Calendar/CalendarView";
 import ReportDialog from "../components/Reports/ReportDialog";
 import AppointmentOverview from "../components/Appointments/AppointmentOverview";
+import PaymentReports from "../components/Payment/PaymentReports";
+import CollectPaymentDialog from "../components/Payment/CollectPaymentDialog";
+import ClinicSelector from "@/components/ClinicSelector";
+import { useClinic } from "@/contexts/ClinicContext";
+
+import { DollarSignIcon, AlertCircleIcon, SettingsIcon } from "lucide-react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 function DashboardPage() {
   const [appointments, setAppointments] = useState([]);
@@ -48,6 +56,14 @@ function DashboardPage() {
     end: moment().endOf("month").toDate(),
   });
 
+  // Payment states
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [pendingPayments, setPendingPayments] = useState(0);
+  const [recentPayments, setRecentPayments] = useState([]);
+
+  // Get clinic context
+  const { selectedClinic, loading: clinicLoading } = useClinic();
+
   useEffect(() => {
     const authUnsubscribe = auth.onAuthStateChanged((currentUser) => {
       if (!currentUser) {
@@ -55,8 +71,16 @@ function DashboardPage() {
       }
     });
 
+    // Only fetch appointments if a clinic is selected
+    if (!selectedClinic) {
+      setAppointments([]);
+      setLoading(false);
+      return;
+    }
+
     const appointmentsQuery = query(
       collection(db, "appointments"),
+      where("clinicId", "==", selectedClinic),
       orderBy("start"),
       where("start", ">=", calendarRange.start),
       where("start", "<=", calendarRange.end)
@@ -85,7 +109,74 @@ function DashboardPage() {
       authUnsubscribe();
       appointmentsUnsubscribe();
     };
-  }, [navigate, calendarRange]);
+  }, [navigate, calendarRange, selectedClinic]);
+
+  // Fetch payment data
+  useEffect(() => {
+    // Only fetch payments if a clinic is selected
+    if (!selectedClinic) {
+      setMonthlyRevenue(0);
+      setPendingPayments(0);
+      setRecentPayments([]);
+      return;
+    }
+
+    // Monthly revenue
+    const startOfMonthDate = startOfMonth(new Date());
+    const endOfMonthDate = endOfMonth(new Date());
+
+    const paymentsQuery = query(
+      collection(db, "payments"),
+      where("clinicId", "==", selectedClinic),
+      where("sessionDate", ">=", startOfMonthDate),
+      where("sessionDate", "<=", endOfMonthDate)
+    );
+
+    const unsubscribePayments = onSnapshot(paymentsQuery, (snapshot) => {
+      const revenue = snapshot.docs.reduce(
+        (sum, doc) => sum + doc.data().amount,
+        0
+      );
+      setMonthlyRevenue(revenue);
+    });
+
+    // Pending payments (unpaid appointments)
+    const appointmentsQuery = query(
+      collection(db, "appointments"),
+      where("clinicId", "==", selectedClinic),
+      where("paymentStatus", "in", ["unpaid", "partial"])
+    );
+
+    const unsubscribeAppointments = onSnapshot(
+      appointmentsQuery,
+      (snapshot) => {
+        setPendingPayments(snapshot.docs.length);
+      }
+    );
+
+    // Recent payments
+    const recentPaymentsQuery = query(
+      collection(db, "payments"),
+      where("clinicId", "==", selectedClinic),
+      orderBy("createdAt", "desc"),
+      limit(5)
+    );
+
+    const unsubscribeRecent = onSnapshot(recentPaymentsQuery, (snapshot) => {
+      const payments = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt.toDate(),
+      }));
+      setRecentPayments(payments);
+    });
+
+    return () => {
+      unsubscribePayments();
+      unsubscribeAppointments();
+      unsubscribeRecent();
+    };
+  }, [selectedClinic]);
 
   const handleLogout = async () => {
     try {
@@ -207,6 +298,12 @@ function DashboardPage() {
         }
         break;
     }
+
+    // Add dollar sign indicator for paid appointments
+    if (event.paymentStatus === "paid") {
+      style.borderLeft = "4px solid #22c55e"; // Green border for paid appointments
+    }
+
     return { style };
   };
 
@@ -217,6 +314,14 @@ function DashboardPage() {
       description: `${client.name} is now ready for an appointment. Click a slot on the calendar.`,
     });
   };
+
+  if (clinicLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading clinics...
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -231,10 +336,27 @@ function DashboardPage() {
       <div className="container mx-auto bg-card rounded-xl shadow-lg p-6 flex flex-col min-h-[calc(100vh-48px)]">
         <div className="flex justify-between items-center mb-6 border-b pb-4">
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <div className="space-x-2">
+          <div className="flex items-center space-x-2">
+            <ClinicSelector />
             <Button asChild>
               <Link to="/clients">Client Management</Link>
             </Button>
+
+            <Button asChild variant="ghost">
+              <Link to="/payments">
+                <DollarSignIcon className="mr-2 h-4 w-4" />
+                Payments
+              </Link>
+            </Button>
+
+            <Button asChild variant="ghost">
+              <Link to="/settings">
+                <SettingsIcon className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+
+            <PaymentReports />
             <ReportDialog />
             <Button onClick={handleLogout} variant="destructive">
               Logout
@@ -244,34 +366,116 @@ function DashboardPage() {
 
         {error && <p className="text-red-500 mb-4">{error}</p>}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-grow">
-          {/* 👇 FIX: Changed md-col-span-1 to md:col-span-1 */}
-          <div className="md:col-span-1">
-            <Card className="p-4 shadow-sm h-full">
-              <ClientSelector
-                onSelectClient={handleSelectClient}
-                showAddButton={false}
-                onUpdateAppointmentStatus={updateAppointmentStatus}
-              />
-            </Card>
+        {!selectedClinic ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <h2 className="text-2xl font-semibold mb-4">No Clinic Selected</h2>
+            <p className="text-muted-foreground mb-6">
+              Please select a clinic from the dropdown above to view
+              appointments and payments.
+            </p>
+            <Button asChild>
+              <Link to="/settings">Go to Settings</Link>
+            </Button>
           </div>
+        ) : (
+          <>
+            {/* Payment Statistics */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Monthly Revenue
+                  </CardTitle>
+                  <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    ${monthlyRevenue.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Revenue for {format(new Date(), "MMMM yyyy")}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Pending Payments
+                  </CardTitle>
+                  <AlertCircleIcon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{pendingPayments}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Unpaid or partially paid appointments
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* 👇 FIX: Changed md-col-span-3 to md:col-span-3 */}
-          <div className="md:col-span-3 flex flex-col">
-            <CalendarView
-              events={appointments}
-              onSelectSlot={handleSelectSlot}
-              onSelectEvent={handleSelectEvent}
-              eventPropGetter={eventPropGetter}
-              onEventResize={handleEventResize}
-              onEventDrop={handleEventDrop}
-              onNavigate={handleNavigate}
-              onMarkDone={(id) => updateAppointmentStatus(id, "done")}
-              onMarkMissed={(id) => updateAppointmentStatus(id, "missed")}
-              onMarkPostponed={(id) => updateAppointmentStatus(id, "postponed")}
-            />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-grow">
+              <div className="md:col-span-1">
+                <Card className="p-4 shadow-sm h-full">
+                  <ClientSelector
+                    onSelectClient={handleSelectClient}
+                    showAddButton={false}
+                    onUpdateAppointmentStatus={updateAppointmentStatus}
+                  />
+                </Card>
+
+                {/* Recent Payments */}
+                <Card className="p-4 shadow-sm mt-4">
+                  <h3 className="font-semibold mb-3">Recent Payments</h3>
+                  <div className="space-y-3">
+                    {recentPayments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <div>
+                          <p className="font-medium">{payment.clientName}</p>
+                          <p className="text-muted-foreground">
+                            {format(payment.createdAt, "MMM dd")}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            ${payment.amount.toFixed(2)}
+                          </p>
+                          <p className="text-muted-foreground capitalize text-xs">
+                            {payment.paymentMethod}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {recentPayments.length === 0 && (
+                      <p className="text-muted-foreground text-center py-2 text-sm">
+                        No recent payments
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="md:col-span-3 flex flex-col">
+                <CalendarView
+                  events={appointments}
+                  onSelectSlot={handleSelectSlot}
+                  onSelectEvent={handleSelectEvent}
+                  eventPropGetter={eventPropGetter}
+                  onEventResize={handleEventResize}
+                  onEventDrop={handleEventDrop}
+                  onNavigate={handleNavigate}
+                  onMarkDone={(id) => updateAppointmentStatus(id, "done")}
+                  onMarkMissed={(id) => updateAppointmentStatus(id, "missed")}
+                  onMarkPostponed={(id) =>
+                    updateAppointmentStatus(id, "postponed")
+                  }
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <AppointmentOverview

@@ -1,5 +1,3 @@
-// src/components/Appointments/AppointmentForm.jsx
-
 import React, { useState, useEffect } from "react";
 import { db } from "../../firebase";
 import {
@@ -25,9 +23,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ConfirmationDialog from "@/components/ui/ConfirmationDialog";
-
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import PaymentStatusBadge from "../Payment/PaymentStatusBadge";
+import { useClinic } from "@/contexts/ClinicContext";
 
 const formatDateForInput = (date) => {
   if (!date) return "";
@@ -63,6 +61,8 @@ function AppointmentForm({
   const [isPackage, setIsPackage] = useState(false);
   const [packageSessions, setPackageSessions] = useState(1);
   const [sessionsPaid, setSessionsPaid] = useState(0);
+
+  const { selectedClinic } = useClinic();
 
   useEffect(() => {
     const clientsCollection = collection(db, "clients");
@@ -142,6 +142,12 @@ function AppointmentForm({
       toast({ title: "Please select a client.", variant: "destructive" });
       return;
     }
+
+    if (!selectedClinic) {
+      toast({ title: "Please select a clinic first.", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
     try {
       const startDateObj = new Date(startDateTime);
@@ -165,6 +171,7 @@ function AppointmentForm({
           ? 1
           : 0,
         lastPaymentUpdate: new Date(),
+        clinicId: selectedClinic, // Add clinic ID
       };
 
       if (appointmentToEdit) {

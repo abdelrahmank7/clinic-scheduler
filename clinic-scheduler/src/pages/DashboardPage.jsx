@@ -1,5 +1,4 @@
-//src/pages/DashboardPage.jsx
-
+// src/pages/DashboardPage.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
@@ -32,9 +31,11 @@ import CalendarView from "../components/Calendar/CalendarView";
 import ReportDialog from "../components/Reports/ReportDialog";
 import AppointmentOverview from "../components/Appointments/AppointmentOverview";
 import PaymentReports from "../components/Payment/PaymentReports";
-import CollectPaymentDialog from "../components/Payment/CollectPaymentDialog";
+import CollectPaymentDialog from "../components/Payment/dialogs/CollectPaymentDialog";
 import ClinicSelector from "@/components/ClinicSelector";
 import { useClinic } from "@/contexts/ClinicContext";
+import RevenueDashboard from "@/components/Payment/reports/RevenueDashboard";
+import { useRevenue } from "@/hooks/useRevenue";
 
 import { DollarSignIcon, AlertCircleIcon, SettingsIcon } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
@@ -56,13 +57,9 @@ function DashboardPage() {
     end: moment().endOf("month").toDate(),
   });
 
-  // Payment states
-  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
-  const [pendingPayments, setPendingPayments] = useState(0);
-  const [recentPayments, setRecentPayments] = useState([]);
-
   // Get clinic context
   const { selectedClinic, loading: clinicLoading } = useClinic();
+  const { revenueData, loading: revenueLoading } = useRevenue(selectedClinic);
 
   useEffect(() => {
     const authUnsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -111,48 +108,11 @@ function DashboardPage() {
     };
   }, [navigate, calendarRange, selectedClinic]);
 
-  // Fetch payment data
+  // Fetch recent payments for sidebar
   useEffect(() => {
-    // Only fetch payments if a clinic is selected
     if (!selectedClinic) {
-      setMonthlyRevenue(0);
-      setPendingPayments(0);
-      setRecentPayments([]);
       return;
     }
-
-    // Monthly revenue
-    const startOfMonthDate = startOfMonth(new Date());
-    const endOfMonthDate = endOfMonth(new Date());
-
-    const paymentsQuery = query(
-      collection(db, "payments"),
-      where("clinicId", "==", selectedClinic),
-      where("sessionDate", ">=", startOfMonthDate),
-      where("sessionDate", "<=", endOfMonthDate)
-    );
-
-    const unsubscribePayments = onSnapshot(paymentsQuery, (snapshot) => {
-      const revenue = snapshot.docs.reduce(
-        (sum, doc) => sum + doc.data().amount,
-        0
-      );
-      setMonthlyRevenue(revenue);
-    });
-
-    // Pending payments (unpaid appointments)
-    const appointmentsQuery = query(
-      collection(db, "appointments"),
-      where("clinicId", "==", selectedClinic),
-      where("paymentStatus", "in", ["unpaid", "partial"])
-    );
-
-    const unsubscribeAppointments = onSnapshot(
-      appointmentsQuery,
-      (snapshot) => {
-        setPendingPayments(snapshot.docs.length);
-      }
-    );
 
     // Recent payments
     const recentPaymentsQuery = query(
@@ -168,12 +128,9 @@ function DashboardPage() {
         ...doc.data(),
         createdAt: doc.data().createdAt.toDate(),
       }));
-      setRecentPayments(payments);
     });
 
     return () => {
-      unsubscribePayments();
-      unsubscribeAppointments();
       unsubscribeRecent();
     };
   }, [selectedClinic]);
@@ -192,10 +149,12 @@ function DashboardPage() {
     setSelectedSlot({ start, end });
     setIsFormOpen(true);
   };
+
   const handleSelectEvent = (event) => {
     setSelectedAppointmentForOverview(event);
     setIsOverviewOpen(true);
   };
+
   const handleNavigate = (newDate, view) => {
     const start = moment(newDate)
       .startOf(view === "month" ? "month" : "day")
@@ -205,16 +164,19 @@ function DashboardPage() {
       .toDate();
     setCalendarRange({ start, end });
   };
+
   const handleOpenEditForm = (appointment) => {
     setEditingAppointment(appointment);
     setIsFormOpen(true);
     setIsOverviewOpen(false);
   };
+
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingAppointment(null);
     setSelectedSlot(null);
   };
+
   const handleOverviewClose = () => {
     setIsOverviewOpen(false);
     setSelectedAppointmentForOverview(null);
@@ -379,38 +341,12 @@ function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* Payment Statistics */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Monthly Revenue
-                  </CardTitle>
-                  <DollarSignIcon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    ${monthlyRevenue.toFixed(2)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Revenue for {format(new Date(), "MMMM yyyy")}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Pending Payments
-                  </CardTitle>
-                  <AlertCircleIcon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{pendingPayments}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Unpaid or partially paid appointments
-                  </p>
-                </CardContent>
-              </Card>
+            {/* Enhanced Revenue Dashboard */}
+            <div className="mb-6">
+              <RevenueDashboard
+                revenueData={revenueData}
+                loading={revenueLoading}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 flex-grow">
@@ -427,7 +363,7 @@ function DashboardPage() {
                 <Card className="p-4 shadow-sm mt-4">
                   <h3 className="font-semibold mb-3">Recent Payments</h3>
                   <div className="space-y-3">
-                    {recentPayments.map((payment) => (
+                    {revenueData.recentPayments?.map((payment) => (
                       <div
                         key={payment.id}
                         className="flex items-center justify-between text-sm"
@@ -440,7 +376,7 @@ function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-medium">
-                            ${payment.amount.toFixed(2)}
+                            ${payment.amount?.toFixed(2)}
                           </p>
                           <p className="text-muted-foreground capitalize text-xs">
                             {payment.paymentMethod}
@@ -448,7 +384,8 @@ function DashboardPage() {
                         </div>
                       </div>
                     ))}
-                    {recentPayments.length === 0 && (
+                    {(!revenueData.recentPayments ||
+                      revenueData.recentPayments.length === 0) && (
                       <p className="text-muted-foreground text-center py-2 text-sm">
                         No recent payments
                       </p>
@@ -486,7 +423,7 @@ function DashboardPage() {
       />
 
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
             <DialogTitle>
               {editingAppointment ? "Edit Appointment" : "New Appointment"}

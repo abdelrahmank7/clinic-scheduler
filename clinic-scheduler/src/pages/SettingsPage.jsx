@@ -1,6 +1,5 @@
 // src/pages/SettingsPage.jsx
-
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
   collection,
@@ -26,14 +25,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -47,53 +38,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { setDoc, Timestamp } from "firebase/firestore";
+import { setDoc } from "firebase/firestore";
 import { useClinic } from "@/contexts/ClinicContext";
-
-// --- START NEW CODE ---
-// Create a new context for pricing
-export const PricingContext = createContext(null);
-
-// Create a custom hook to use the pricing data
-export const usePricing = () => useContext(PricingContext);
-
-// Create the pricing provider component
-export const PricingProvider = ({ children }) => {
-  const { selectedClinic } = useClinic();
-  const [pricing, setPricing] = useState(null);
-
-  // Fetch pricing settings based on the selected clinic
-  useEffect(() => {
-    if (!selectedClinic) {
-      setPricing(null); // Reset pricing if no clinic is selected
-      return;
-    }
-
-    const pricingDoc = doc(db, "settings", `pricing_${selectedClinic}`);
-    const unsubscribe = onSnapshot(pricingDoc, (doc) => {
-      if (doc.exists()) {
-        setPricing(doc.data());
-      } else {
-        // Default pricing
-        setPricing({
-          singleSession: 100,
-          packages: [
-            { sessions: 4, price: 350, name: "Basic Package" },
-            { sessions: 8, price: 600, name: "Premium Package" },
-          ],
-        });
-      }
-    });
-    return () => unsubscribe();
-  }, [selectedClinic]);
-
-  return (
-    <PricingContext.Provider value={pricing}>
-      {children}
-    </PricingContext.Provider>
-  );
-};
-// --- END NEW CODE ---
+import { useToast } from "@/components/hooks/use-toast";
 
 const SettingsPage = () => {
   const [user] = useAuthState(auth);
@@ -101,6 +48,7 @@ const SettingsPage = () => {
   const [pricing, setPricing] = useState({});
   const [selectedClinic, setSelectedClinic] = useState("");
   const [loading, setLoading] = useState(false);
+  const { selectedClinic: clinicContext } = useClinic();
 
   // Fetch clinics
   useEffect(() => {
@@ -110,15 +58,15 @@ const SettingsPage = () => {
         id: doc.id,
         ...doc.data(),
       }));
-      setClinics(clinicData);
+      setClinics(clinicsData);
 
-      // Set first clinic as default if none selected
+      // Set clinic from context or first clinic as default
       if (clinicsData.length > 0 && !selectedClinic) {
-        setSelectedClinic(clinicsData[0].id);
+        setSelectedClinic(clinicContext || clinicsData[0].id);
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [clinicContext]);
 
   // Fetch pricing settings
   useEffect(() => {
@@ -133,8 +81,8 @@ const SettingsPage = () => {
         setPricing({
           singleSession: 100,
           packages: [
-            { sessions: 4, price: 350, name: "Basic Package" },
-            { sessions: 8, price: 600, name: "Premium Package" },
+            { id: "basic", sessions: 4, price: 350, name: "Basic Package" },
+            { id: "premium", sessions: 8, price: 600, name: "Premium Package" },
           ],
         });
       }
@@ -142,40 +90,35 @@ const SettingsPage = () => {
     return () => unsubscribe();
   }, [selectedClinic]);
 
-  const savePricing = async (pricingPayload) => {
+  const savePricing = async () => {
+    setLoading(true);
     try {
-      // Defensive: avoid sending DOM events to Firestore
-      if (pricingPayload && pricingPayload.nativeEvent) {
-        console.error(
-          "savePricing called with event instead of payload",
-          pricingPayload
-        );
-        toast({
-          title: "Save failed",
-          description:
-            "Internal error: save handler received an event. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
+      const pricingDocRef = doc(db, "settings", `pricing_${selectedClinic}`);
 
-      const docId = `pricing_${selectedClinic || "default"}`;
-      const docRef = doc(db, "settings", docId);
-
+      // Use setDoc with merge: true instead of updateDoc
+      // This will create the document if it doesn't exist, or update it if it does
       await setDoc(
-        docRef,
-        { ...pricingPayload, updatedAt: Timestamp.now() },
+        pricingDocRef,
+        {
+          ...pricing,
+          updatedAt: new Date(),
+        },
         { merge: true }
       );
 
-      toast({ title: "Pricing saved", description: "Changes were saved." });
-    } catch (err) {
-      console.error("Error saving pricing:", err);
       toast({
-        title: "Error saving pricing",
-        description: err.message || "Failed to save pricing",
+        title: "Success",
+        description: "Pricing settings saved successfully!",
+      });
+    } catch (error) {
+      console.error("Error saving pricing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save pricing settings.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -199,41 +142,264 @@ const SettingsPage = () => {
     }
   };
 
-  const saveRevenueSharing = async (sharingPayload) => {
-    try {
-      // Defensive: avoid sending DOM events to Firestore
-      if (sharingPayload && sharingPayload.nativeEvent) {
-        console.error(
-          "saveRevenueSharing called with event instead of payload",
-          sharingPayload
+  // Revenue Sharing Settings Component
+  const RevenueSharingSettings = ({ clinicId }) => {
+    const [revenueSharing, setRevenueSharing] = useState({
+      clinicPercentage: 60,
+      physicianPercentage: 40,
+    });
+    const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+      if (!clinicId) return;
+
+      const revenueDoc = doc(db, "settings", `revenue_${clinicId}`);
+      const unsubscribe = onSnapshot(revenueDoc, (doc) => {
+        if (doc.exists()) {
+          setRevenueSharing(doc.data());
+        }
+      });
+      return () => unsubscribe();
+    }, [clinicId]);
+
+    const handleSaveRevenueSharing = async () => {
+      setLoading(true);
+      try {
+        const docRef = doc(db, "settings", `revenue_${clinicId}`);
+
+        // Use setDoc with merge: true
+        await setDoc(
+          docRef,
+          {
+            ...revenueSharing,
+            updatedAt: new Date(),
+          },
+          { merge: true }
         );
+
         toast({
-          title: "Save failed",
-          description:
-            "Internal error: save handler received an event. Please try again.",
+          title: "Success",
+          description: "Revenue sharing settings saved successfully!",
+        });
+      } catch (error) {
+        console.error("Error saving revenue sharing:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save revenue sharing settings.",
           variant: "destructive",
         });
-        return;
+      } finally {
+        setLoading(false);
       }
+    };
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="clinicPercentage">Clinic Percentage</Label>
+            <Input
+              type="number"
+              id="clinicPercentage"
+              value={revenueSharing.clinicPercentage}
+              onChange={(e) =>
+                setRevenueSharing({
+                  ...revenueSharing,
+                  clinicPercentage: parseInt(e.target.value),
+                  physicianPercentage: 100 - parseInt(e.target.value),
+                })
+              }
+              min="0"
+              max="100"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="physicianPercentage">Physician Percentage</Label>
+            <Input
+              type="number"
+              id="physicianPercentage"
+              value={revenueSharing.physicianPercentage}
+              onChange={(e) =>
+                setRevenueSharing({
+                  ...revenueSharing,
+                  physicianPercentage: parseInt(e.target.value),
+                  clinicPercentage: 100 - parseInt(e.target.value),
+                })
+              }
+              min="0"
+              max="100"
+            />
+          </div>
+        </div>
+        <Button onClick={handleSaveRevenueSharing} disabled={loading}>
+          {loading ? "Saving..." : "Save Revenue Sharing"}
+        </Button>
+      </div>
+    );
+  };
 
-      const docId = `revenue_${selectedClinic || "default"}`;
-      const docRef = doc(db, "settings", docId);
+  // Update the pricing settings section to be cleaner:
+  const PricingSettings = () => {
+    const [localLoading, setLocalLoading] = useState(false);
 
-      await setDoc(
-        docRef,
-        { ...sharingPayload, updatedAt: Timestamp.now() },
-        { merge: true }
-      );
+    const handleSavePricing = async () => {
+      setLocalLoading(true);
+      try {
+        const pricingDocRef = doc(db, "settings", `pricing_${selectedClinic}`);
 
-      toast({ title: "Revenue saved", description: "Changes were saved." });
-    } catch (err) {
-      console.error("Error saving revenue sharing:", err);
-      toast({
-        title: "Error saving revenue sharing",
-        description: err.message || "Failed to save revenue sharing",
-        variant: "destructive",
+        await setDoc(
+          pricingDocRef,
+          {
+            ...pricing,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        toast({
+          title: "Success",
+          description: "Pricing settings saved successfully!",
+        });
+      } catch (error) {
+        console.error("Error saving pricing:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save pricing settings.",
+          variant: "destructive",
+        });
+      } finally {
+        setLocalLoading(false);
+      }
+    };
+
+    const addPackage = () => {
+      setPricing({
+        ...pricing,
+        packages: [
+          ...(pricing.packages || []),
+          {
+            id: `pkg_${Date.now()}`,
+            sessions: 4,
+            price: 0,
+            name: "New Package",
+          },
+        ],
       });
-    }
+    };
+
+    const updatePackage = (index, field, value) => {
+      const newPackages = [...(pricing.packages || [])];
+      newPackages[index] = { ...newPackages[index], [field]: value };
+      setPricing({ ...pricing, packages: newPackages });
+    };
+
+    const removePackage = (index) => {
+      const newPackages = [...(pricing.packages || [])];
+      newPackages.splice(index, 1);
+      setPricing({ ...pricing, packages: newPackages });
+    };
+
+    return (
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Single Session Pricing</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="singleSession">Price per Session ($)</Label>
+                <Input
+                  type="number"
+                  id="singleSession"
+                  value={pricing?.singleSession || 100}
+                  onChange={(e) =>
+                    setPricing({
+                      ...pricing,
+                      singleSession: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Package Options</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(pricing?.packages || []).map((pkg, index) => (
+                  <div
+                    key={pkg.id || index}
+                    className="grid grid-cols-1 md:grid-cols-4 gap-2 p-3 border rounded-lg"
+                  >
+                    <div className="md:col-span-2">
+                      <Input
+                        value={pkg.name || ""}
+                        onChange={(e) =>
+                          updatePackage(index, "name", e.target.value)
+                        }
+                        placeholder="Package name"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="number"
+                        value={pkg.sessions || ""}
+                        onChange={(e) =>
+                          updatePackage(
+                            index,
+                            "sessions",
+                            parseInt(e.target.value) || 1
+                          )
+                        }
+                        min="1"
+                        placeholder="Sessions"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        value={pkg.price || ""}
+                        onChange={(e) =>
+                          updatePackage(
+                            index,
+                            "price",
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        min="0"
+                        step="0.01"
+                        placeholder="Price"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removePackage(index)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                <Button onClick={addPackage} variant="outline">
+                  + Add Package Option
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Button onClick={handleSavePricing} disabled={localLoading}>
+          {localLoading ? "Saving..." : "Save Pricing Settings"}
+        </Button>
+      </CardContent>
+    );
   };
 
   return (
@@ -278,92 +444,7 @@ const SettingsPage = () => {
               Set prices for single sessions and packages
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="singleSession">Single Session Price ($)</Label>
-                <Input
-                  type="number"
-                  id="singleSession"
-                  value={pricing.singleSession || ""}
-                  onChange={(e) =>
-                    setPricing({
-                      ...pricing,
-                      singleSession: parseFloat(e.target.value),
-                    })
-                  }
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <Label>Package Pricing</Label>
-              {pricing.packages?.map((pkg, index) => (
-                <div key={index} className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Package Name</Label>
-                    <Input
-                      value={pkg.name || ""}
-                      onChange={(e) => {
-                        const newPackages = [...pricing.packages];
-                        newPackages[index].name = e.target.value;
-                        setPricing({ ...pricing, packages: newPackages });
-                      }}
-                      placeholder="Package name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Sessions</Label>
-                    <Input
-                      type="number"
-                      value={pkg.sessions || ""}
-                      onChange={(e) => {
-                        const newPackages = [...pricing.packages];
-                        newPackages[index].sessions = parseInt(e.target.value);
-                        setPricing({ ...pricing, packages: newPackages });
-                      }}
-                      min="1"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Price ($)</Label>
-                    <Input
-                      type="number"
-                      value={pkg.price || ""}
-                      onChange={(e) => {
-                        const newPackages = [...pricing.packages];
-                        newPackages[index].price = parseFloat(e.target.value);
-                        setPricing({ ...pricing, packages: newPackages });
-                      }}
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-              ))}
-
-              <Button
-                onClick={() => {
-                  setPricing({
-                    ...pricing,
-                    packages: [
-                      ...(pricing.packages || []),
-                      { sessions: 4, price: 0, name: "" },
-                    ],
-                  });
-                }}
-                variant="outline"
-              >
-                Add Package
-              </Button>
-            </div>
-
-            <Button onClick={savePricing} disabled={loading}>
-              {loading ? "Saving..." : "Save Pricing"}
-            </Button>
-          </CardContent>
+          <PricingSettings />
         </Card>
       )}
 
@@ -452,93 +533,6 @@ const AddClinicDialog = ({ onAddClinic }) => {
         </form>
       </DialogContent>
     </Dialog>
-  );
-};
-
-// Revenue Sharing Settings Component
-const RevenueSharingSettings = ({ clinicId }) => {
-  const [revenueSharing, setRevenueSharing] = useState({
-    clinicPercentage: 60,
-    physicianPercentage: 40,
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!clinicId) return;
-
-    const revenueDoc = doc(db, "settings", `revenue_${clinicId}`);
-    const unsubscribe = onSnapshot(revenueDoc, (doc) => {
-      if (doc.exists()) {
-        setRevenueSharing(doc.data());
-      }
-    });
-    return () => unsubscribe();
-  }, [clinicId]);
-
-  const saveRevenueSharing = async (sharingPayload) => {
-    try {
-      const docId = `revenue_${selectedClinic}`;
-      const docRef = doc(db, "settings", docId);
-
-      await setDoc(
-        docRef,
-        { ...sharingPayload, updatedAt: Timestamp.now() },
-        { merge: true }
-      );
-
-      toast({ title: "Revenue saved", description: "Changes were saved." });
-    } catch (err) {
-      console.error("Error saving revenue sharing:", err);
-      toast({
-        title: "Error saving revenue sharing",
-        description: err.message || "Failed to save revenue sharing",
-        variant: "destructive",
-      });
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="clinicPercentage">Clinic Percentage</Label>
-          <Input
-            type="number"
-            id="clinicPercentage"
-            value={revenueSharing.clinicPercentage}
-            onChange={(e) =>
-              setRevenueSharing({
-                ...revenueSharing,
-                clinicPercentage: parseInt(e.target.value),
-                physicianPercentage: 100 - parseInt(e.target.value),
-              })
-            }
-            min="0"
-            max="100"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="physicianPercentage">Physician Percentage</Label>
-          <Input
-            type="number"
-            id="physicianPercentage"
-            value={revenueSharing.physicianPercentage}
-            onChange={(e) =>
-              setRevenueSharing({
-                ...revenueSharing,
-                physicianPercentage: parseInt(e.target.value),
-                clinicPercentage: 100 - parseInt(e.target.value),
-              })
-            }
-            min="0"
-            max="100"
-          />
-        </div>
-      </div>
-      <Button onClick={saveRevenueSharing} disabled={loading}>
-        {loading ? "Saving..." : "Save Revenue Sharing"}
-      </Button>
-    </div>
   );
 };
 

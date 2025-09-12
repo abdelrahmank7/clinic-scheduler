@@ -1,57 +1,41 @@
-//src/hooks/usePayments.js
-
+// src/hooks/usePayments.js
 import { useState } from "react";
-import { db } from "../firebase";
-import {
-  doc,
-  updateDoc,
-  collection,
-  addDoc,
-  Timestamp,
-} from "firebase/firestore";
+import { PaymentService } from "../services/payment-service";
 import { toast } from "@/components/hooks/use-toast";
 
 export function usePayments() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const updateAppointmentPayment = async (appointmentId, paymentData) => {
+  const processPayment = async (paymentData) => {
     setLoading(true);
+    setError(null);
+
     try {
-      await updateDoc(doc(db, "appointments", appointmentId), {
-        ...paymentData,
-        lastPaymentUpdate: Timestamp.now(),
-      });
-      return true;
-    } catch (error) {
-      console.error("Error updating payment:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update payment information.",
-        variant: "destructive",
-      });
-      return false;
+      const result = await PaymentService.processPayment(paymentData);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
   };
 
-  const addPaymentRecord = async (paymentData) => {
+  const refundPayment = async (paymentId, refundAmount, reason) => {
     setLoading(true);
+    setError(null);
+
     try {
-      // Ensure createdAt is a Firestore Timestamp so readers that expect .toDate() work
-      await addDoc(collection(db, "payments"), {
-        ...paymentData,
-        createdAt: Timestamp.now(),
-      });
-      return true;
-    } catch (error) {
-      console.error("Error adding payment record:", error);
-      toast({
-        title: "Error",
-        description: "Failed to record payment.",
-        variant: "destructive",
-      });
-      return false;
+      const result = await PaymentService.refundPayment(
+        paymentId,
+        refundAmount,
+        reason
+      );
+      return result;
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
@@ -59,7 +43,8 @@ export function usePayments() {
 
   return {
     loading,
-    updateAppointmentPayment,
-    addPaymentRecord,
+    error,
+    processPayment,
+    refundPayment,
   };
 }

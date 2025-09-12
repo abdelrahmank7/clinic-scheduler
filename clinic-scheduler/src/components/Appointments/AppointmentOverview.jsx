@@ -1,3 +1,5 @@
+// src/components/Appointments/AppointmentOverview.jsx
+
 import React from "react";
 import {
   Dialog,
@@ -10,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Timestamp } from "firebase/firestore";
 
 import PaymentStatusBadge from "../Payment/PaymentStatusBadge";
-import PackagePaymentTracker from "../Payment/PackagePaymentTracker";
-import CollectPaymentDialog from "../Payment/CollectPaymentDialog";
+import PackagePaymentTracker from "../Payment/trackers/PackagePaymentTracker";
+import CollectPaymentDialog from "../Payment/dialogs/CollectPaymentDialog";
 
 const toTitleCase = (str) => {
   if (!str) return "";
@@ -54,66 +56,83 @@ const AppointmentOverview = ({ appointment, isOpen, onClose, onEdit }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Appointment Details</DialogTitle>
+      <DialogContent className="sm:max-w-md w-[95vw] max-w-[95vw] p-4">
+        <DialogHeader className="text-center sm:text-left">
+          <DialogTitle className="text-lg sm:text-xl">
+            Appointment Details
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div>
-            <Label className="font-semibold">Client</Label>
-            <p>{clientName}</p>
+          <div className="bg-muted p-3 rounded-lg">
+            <Label className="font-semibold text-sm">Client</Label>
+            <p className="mt-1">{clientName}</p>
           </div>
-          <div>
-            <Label className="font-semibold">Type</Label>
-            <p>{toTitleCase(appointment.title)}</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-muted p-3 rounded-lg">
+              <Label className="font-semibold text-sm">Type</Label>
+              <p className="mt-1">{toTitleCase(appointment.title)}</p>
+            </div>
+            <div className="bg-muted p-3 rounded-lg">
+              <Label className="font-semibold text-sm">Time</Label>
+              <p className="mt-1 text-sm">
+                {formatDateTime(startDate)} - {formatTime(endDate)}
+              </p>
+            </div>
           </div>
-          <div>
-            <Label className="font-semibold">Time</Label>
-            <p>
-              {formatDateTime(startDate)} - {formatTime(endDate)}
-            </p>
-          </div>
-          <div>
-            <Label className="font-semibold">Notes</Label>
-            <p className="mt-1 p-2 bg-gray-100 rounded-md whitespace-pre-wrap">
+
+          <div className="bg-muted p-3 rounded-lg">
+            <Label className="font-semibold text-sm">Notes</Label>
+            <p className="mt-1 p-2 bg-background rounded-md whitespace-pre-wrap text-sm">
               {notes}
             </p>
           </div>
-          <div>
-            <Label className="font-semibold">Payment Status</Label>
-            <div className="mt-1">
+
+          <div className="bg-muted p-3 rounded-lg">
+            <Label className="font-semibold text-sm">Payment Status</Label>
+            <div className="mt-2">
               <PaymentStatusBadge
                 status={appointment.paymentStatus}
                 amount={appointment.amount}
               />
             </div>
           </div>
+
           {/* Display package name if applicable */}
-          {appointment.isPackage && (
-            <div>
-              <Label className="font-semibold">Package</Label>
-              <p>{appointment.packageName}</p>
+          {appointment.isPackage && appointment.packageName && (
+            <div className="bg-muted p-3 rounded-lg">
+              <Label className="font-semibold text-sm">Package</Label>
+              <p className="mt-1">{appointment.packageName}</p>
             </div>
           )}
 
           {appointment.isPackage && (
             <div>
-              <Label className="font-semibold">Package Details</Label>
+              <Label className="font-semibold text-sm mb-2 block">
+                Package Details
+              </Label>
               <PackagePaymentTracker appointment={appointment} />
             </div>
           )}
         </div>
-        <CollectPaymentDialog appointment={appointment}>
-          <Button variant="outline">Collect Payment</Button>
-        </CollectPaymentDialog>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} variant="secondary">
+
+        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+          <CollectPaymentDialog appointment={appointment}>
+            <Button variant="outline" className="h-12 sm:h-9">
+              Collect Payment
+            </Button>
+          </CollectPaymentDialog>
+        </div>
+
+        <div className="flex flex-col-reverse sm:flex-row gap-2 mt-3">
+          <Button onClick={onClose} variant="secondary" className="h-12 sm:h-9">
             Close
           </Button>
           <Button
             onClick={() => {
               onEdit(appointment);
             }}
+            className="h-12 sm:h-9"
           >
             Edit
           </Button>

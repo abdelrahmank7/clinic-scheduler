@@ -35,7 +35,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PaymentStatusBadge from "@/components/Payment/PaymentStatusBadge";
+import PaymentReportGenerator from "@/components/Payment/reports/PaymentReportGenerator";
 import { format } from "date-fns";
 import { useClinic } from "@/contexts/ClinicContext";
 
@@ -180,155 +182,191 @@ const PaymentsPage = () => {
           </p>
         </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Revenue
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(totalRevenue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From {filteredPayments.length} payments
-                </p>
-              </CardContent>
-            </Card>
+        <Tabs defaultValue="payments" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="payments">Payment History</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics & Reports</TabsTrigger>
+          </TabsList>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Payment Methods
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {Object.entries(paymentMethods).map(([method, count]) => (
-                    <div key={method} className="flex justify-between text-sm">
-                      <span className="capitalize">{method}:</span>
-                      <span>{count}</span>
+          <TabsContent value="payments" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Revenue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {formatCurrency(totalRevenue)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    From {filteredPayments.length} payments
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Payment Methods
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1">
+                    {Object.entries(paymentMethods).map(([method, count]) => (
+                      <div
+                        key={method}
+                        className="flex justify-between text-sm"
+                      >
+                        <span className="capitalize">{method}:</span>
+                        <span>{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Filters</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="status-filter">Status</Label>
+                    <Select value={filter} onValueChange={setFilter}>
+                      <SelectTrigger id="status-filter">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Payments</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="unpaid">Unpaid</SelectItem>
+                        <SelectItem value="partial">Partial</SelectItem>
+                        <SelectItem value="package">Packages</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="search">Search</Label>
+                    <Input
+                      id="search"
+                      placeholder="Search by client or method"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="start-date">Start Date</Label>
+                      <Input
+                        type="date"
+                        id="start-date"
+                        value={dateRange.start}
+                        onChange={(e) =>
+                          setDateRange({ ...dateRange, start: e.target.value })
+                        }
+                      />
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="space-y-1">
+                      <Label htmlFor="end-date">End Date</Label>
+                      <Input
+                        type="date"
+                        id="end-date"
+                        value={dateRange.end}
+                        onChange={(e) =>
+                          setDateRange({ ...dateRange, end: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Filters</CardTitle>
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Payment History</CardTitle>
+                <CardDescription>
+                  All payments recorded in the system
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="space-y-1">
-                  <Label htmlFor="status-filter">Status</Label>
-                  <Select value={filter} onValueChange={setFilter}>
-                    <SelectTrigger id="status-filter">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Payments</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="unpaid">Unpaid</SelectItem>
-                      <SelectItem value="partial">Partial</SelectItem>
-                      <SelectItem value="package">Packages</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="search">Search</Label>
-                  <Input
-                    id="search"
-                    placeholder="Search by client or method"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="start-date">Start Date</Label>
-                    <Input
-                      type="date"
-                      id="start-date"
-                      value={dateRange.start}
-                      onChange={(e) =>
-                        setDateRange({ ...dateRange, start: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="end-date">End Date</Label>
-                    <Input
-                      type="date"
-                      id="end-date"
-                      value={dateRange.end}
-                      onChange={(e) =>
-                        setDateRange({ ...dateRange, end: e.target.value })
-                      }
-                    />
+              <CardContent>
+                <div className="border rounded-md">
+                  <div className="max-h-96 overflow-y-auto">
+                    <Table className="text-xs sm:text-sm">
+                      <TableHeader className="sticky top-0 bg-muted">
+                        <TableRow>
+                          <TableHead className="p-2 sm:p-3">Date</TableHead>
+                          <TableHead className="p-2 sm:p-3">Client</TableHead>
+                          <TableHead className="p-2 sm:p-3">Amount</TableHead>
+                          <TableHead className="p-2 sm:p-3">Method</TableHead>
+                          <TableHead className="p-2 sm:p-3">Status</TableHead>
+                          <TableHead className="p-2 sm:p-3">
+                            Session Date
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPayments.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={6}
+                              className="text-center py-4 text-muted-foreground"
+                            >
+                              No payments found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredPayments.map((payment) => (
+                            <TableRow
+                              key={payment.id}
+                              className="border-t hover:bg-muted/50"
+                            >
+                              <TableCell className="p-2 sm:p-3">
+                                {format(
+                                  payment.createdAt,
+                                  "MMM dd, yyyy HH:mm"
+                                )}
+                              </TableCell>
+                              <TableCell className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-none">
+                                {payment.clientName}
+                              </TableCell>
+                              <TableCell className="p-2 sm:p-3">
+                                {formatCurrency(payment.amount)}
+                              </TableCell>
+                              <TableCell className="p-2 sm:p-3 capitalize">
+                                {payment.paymentMethod}
+                              </TableCell>
+                              <TableCell className="p-2 sm:p-3">
+                                <PaymentStatusBadge
+                                  status={payment.paymentStatus}
+                                  amount={payment.amount}
+                                />
+                              </TableCell>
+                              <TableCell className="p-2 sm:p-3">
+                                {format(payment.sessionDate, "MMM dd, yyyy")}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>
-                All payments recorded in the system
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Session Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPayments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
-                        No payments found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredPayments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          {format(payment.createdAt, "MMM dd, yyyy HH:mm")}
-                        </TableCell>
-                        <TableCell>{payment.clientName}</TableCell>
-                        <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                        <TableCell className="capitalize">
-                          {payment.paymentMethod}
-                        </TableCell>
-                        <TableCell>
-                          <PaymentStatusBadge
-                            status={payment.paymentStatus}
-                            amount={payment.amount}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {format(payment.sessionDate, "MMM dd, yyyy")}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </>
+          <TabsContent value="analytics" className="mt-6">
+            <PaymentReportGenerator
+              payments={payments}
+              revenueSharing={{ clinicPercentage: 60, physicianPercentage: 40 }}
+            />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+// src/components/Payment/PaymentStatusBadge.jsx
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { DollarSignIcon } from "lucide-react";

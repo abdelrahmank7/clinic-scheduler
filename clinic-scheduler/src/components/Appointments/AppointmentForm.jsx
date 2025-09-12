@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/select";
 import ConfirmationDialog from "@/components/ui/ConfirmationDialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import PaymentStatusBadge from "../Payment/PaymentStatusBadge";
 import { useClinic } from "@/contexts/ClinicContext";
+import { usePricing } from "@/contexts/PricingContext";
 
 const formatDateForInput = (date) => {
   if (!date) return "";
@@ -57,13 +57,15 @@ function AppointmentForm({
   const [isClientLoading, setIsClientLoading] = useState(true);
   const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] =
     useState(false);
-  const [amount, setAmount] = useState(0);
-  const [paymentStatus, setPaymentStatus] = useState("unpaid");
-  const [isPackage, setIsPackage] = useState(false);
-  const [packageSessions, setPackageSessions] = useState(1);
-  const [sessionsPaid, setSessionsPaid] = useState(0);
+
+  // Simplified payment fields
+  const [sessionType, setSessionType] = useState("single"); // single, package, custom
+  const [selectedPackage, setSelectedPackage] = useState("");
+  const [customAmount, setCustomAmount] = useState(0);
+  const [packageName, setPackageName] = useState("");
 
   const { selectedClinic } = useClinic();
+  const { pricing } = usePricing();
 
   useEffect(() => {
     const clientsCollection = collection(db, "clients");
@@ -96,12 +98,14 @@ function AppointmentForm({
       setEndDateTime(formatDateForInput(appointmentToEdit.end));
       setNotes(appointmentToEdit.notes || "");
 
-      // Add these lines for payment fields
-      setAmount(appointmentToEdit.amount || 0);
-      setPaymentStatus(appointmentToEdit.paymentStatus || "unpaid");
-      setIsPackage(appointmentToEdit.isPackage || false);
-      setPackageSessions(appointmentToEdit.packageSessions || 1);
-      setSessionsPaid(appointmentToEdit.sessionsPaid || 0);
+      // Set session type based on existing appointment
+      if (appointmentToEdit.isPackage) {
+        setSessionType("package");
+        setSelectedPackage(appointmentToEdit.packageId || "");
+        setPackageName(appointmentToEdit.packageName || "");
+      } else {
+        setSessionType("single");
+      }
     } else if (selectedClient) {
       setClientId(selectedClient.id);
       setTitle("Nutrition");
@@ -109,12 +113,11 @@ function AppointmentForm({
       setStartDateTime(initialStart ? formatDateForInput(initialStart) : "");
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
 
-      // Reset payment fields for new appointments
-      setAmount(0);
-      setPaymentStatus("unpaid");
-      setIsPackage(false);
-      setPackageSessions(1);
-      setSessionsPaid(0);
+      // Reset to defaults
+      setSessionType("single");
+      setSelectedPackage("");
+      setCustomAmount(0);
+      setPackageName("");
     } else {
       setClientId("");
       setTitle("Nutrition");
@@ -122,12 +125,11 @@ function AppointmentForm({
       setStartDateTime(initialStart ? formatDateForInput(initialStart) : "");
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
 
-      // Reset payment fields for new appointments
-      setAmount(0);
-      setPaymentStatus("unpaid");
-      setIsPackage(false);
-      setPackageSessions(1);
-      setSessionsPaid(0);
+      // Reset to defaults
+      setSessionType("single");
+      setSelectedPackage("");
+      setCustomAmount(0);
+      setPackageName("");
     }
   }, [
     appointmentToEdit,
@@ -136,6 +138,43 @@ function AppointmentForm({
     initialEnd,
     isClientLoading,
   ]);
+
+  // Calculate amount based on session type
+  const calculateAmount = () => {
+    if (sessionType === "single") {
+      return pricing?.singleSession || 100;
+    } else if (sessionType === "package" && selectedPackage) {
+      const pkg = (pricing?.packages || []).find(
+        (p) => p.id === selectedPackage
+      );
+      return pkg ? pkg.price : 0;
+    } else if (sessionType === "custom") {
+      return customAmount || 0;
+    }
+    return 0;
+  };
+
+  // Get package sessions
+  const getPackageSessions = () => {
+    if (sessionType === "package" && selectedPackage) {
+      const pkg = (pricing?.packages || []).find(
+        (p) => p.id === selectedPackage
+      );
+      return pkg ? pkg.sessions : 1;
+    }
+    return 1;
+  };
+
+  // Get package name
+  const getPackageName = () => {
+    if (sessionType === "package" && selectedPackage) {
+      const pkg = (pricing?.packages || []).find(
+        (p) => p.id === selectedPackage
+      );
+      return pkg ? pkg.name : "";
+    }
+    return packageName;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -155,6 +194,9 @@ function AppointmentForm({
       const endDateObj = new Date(endDateTime);
       const clientName =
         allClients.find((c) => c.id === clientId)?.name || "Unknown Client";
+
+      const amount = calculateAmount();
+
       const appointmentData = {
         clientId,
         clientName,
@@ -163,16 +205,15 @@ function AppointmentForm({
         end: endDateObj,
         notes,
         amount: parseFloat(amount),
-        paymentStatus,
-        isPackage,
-        packageSessions: isPackage ? parseInt(packageSessions) : 1,
-        sessionsPaid: isPackage
-          ? parseInt(sessionsPaid)
-          : paymentStatus === "paid"
-          ? 1
-          : 0,
+        paymentStatus: "unpaid", // Always start as unpaid
+        isPackage: sessionType === "package",
+        packageSessions: sessionType === "package" ? getPackageSessions() : 1,
+        sessionsPaid: 0, // Always start with 0 sessions paid
+        packageName: getPackageName(),
+        packageId: sessionType === "package" ? selectedPackage : null,
         lastPaymentUpdate: new Date(),
-        clinicId: selectedClinic, // Add clinic ID
+        clinicId: selectedClinic,
+        createdAt: new Date(),
       };
 
       if (appointmentToEdit) {
@@ -182,12 +223,10 @@ function AppointmentForm({
         );
         toast({ title: "Success", description: "Appointment updated!" });
       } else {
-        await addDoc(collection(db, "appointments"), {
-          ...appointmentData,
-          createdAt: new Date(),
-        });
+        await addDoc(collection(db, "appointments"), appointmentData);
         toast({ title: "Success", description: "Appointment added!" });
       }
+
       if (onAppointmentAdded) onAppointmentAdded();
     } catch (err) {
       console.error("Error saving appointment: ", err);
@@ -216,7 +255,6 @@ function AppointmentForm({
       toast({
         title: "Success",
         description: "Appointment deleted successfully!",
-        variant: "destructive",
       });
       if (onAppointmentDeleted) {
         onAppointmentDeleted();
@@ -272,6 +310,7 @@ function AppointmentForm({
             </Select>
           )}
         </div>
+
         <div className="grid w-full items-center gap-1.5">
           <Label htmlFor="appointmentTitle">Title:</Label>
           <Select
@@ -289,99 +328,105 @@ function AppointmentForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid w-full items-center gap-1.5">
-          <Label htmlFor="startDateTime">Start Time:</Label>
-          <Input
-            type="datetime-local"
-            id="startDateTime"
-            value={startDateTime}
-            onChange={(e) => setStartDateTime(e.target.value)}
-            required
-          />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid w-full items-center gap-1.5">
+            <Label htmlFor="startDateTime">Start Time:</Label>
+            <Input
+              type="datetime-local"
+              id="startDateTime"
+              value={startDateTime}
+              onChange={(e) => setStartDateTime(e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid w-full items-center gap-1.5">
+            <Label htmlFor="endDateTime">End Time:</Label>
+            <Input
+              type="datetime-local"
+              id="endDateTime"
+              value={endDateTime}
+              onChange={(e) => setEndDateTime(e.target.value)}
+              required
+            />
+          </div>
         </div>
-        <div className="grid w-full items-center gap-1.5">
-          <Label htmlFor="endDateTime">End Time:</Label>
-          <Input
-            type="datetime-local"
-            id="endDateTime"
-            value={endDateTime}
-            onChange={(e) => setEndDateTime(e.target.value)}
-            required
-          />
-        </div>
-        <div className="grid w-full items-center gap-1.5">
-          <Label htmlFor="amount">Amount ($)</Label>
-          <Input
-            type="number"
-            id="amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            min="0"
-            step="0.01"
-            required
-          />
-        </div>
-        <div className="grid w-full items-center gap-1.5">
-          <Label htmlFor="paymentStatus">Payment Status</Label>
-          <Select
-            value={paymentStatus}
-            onValueChange={(value) => setPaymentStatus(value)}
-            required
-          >
-            <SelectTrigger id="paymentStatus">
-              <SelectValue placeholder="Select payment status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid w-full items-center gap-1.5">
-          <Label>Payment Type</Label>
+
+        {/* Simplified Session Type Selection */}
+        <div className="space-y-4 p-4 bg-white rounded-lg border">
+          <Label className="text-lg font-semibold">Session Type</Label>
+
           <RadioGroup
-            value={isPackage ? "package" : "single"}
-            onValueChange={(value) => setIsPackage(value === "package")}
-            className="flex space-x-4"
+            value={sessionType}
+            onValueChange={(value) => setSessionType(value)}
+            className="space-y-3"
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="single" id="single" />
               <Label htmlFor="single">Single Session</Label>
+              <span className="text-muted-foreground ml-2">
+                (${pricing?.singleSession || 100})
+              </span>
             </div>
+
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="package" id="package" />
               <Label htmlFor="package">Package</Label>
             </div>
+
+            {sessionType === "package" && (
+              <div className="ml-6 space-y-2">
+                <Select
+                  value={selectedPackage}
+                  onValueChange={setSelectedPackage}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a package" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(pricing?.packages || []).map((pkg) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.name} - {pkg.sessions} sessions (${pkg.price})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="custom" id="custom" />
+              <Label htmlFor="custom">Custom Amount</Label>
+            </div>
+
+            {sessionType === "custom" && (
+              <div className="ml-6 space-y-2">
+                <Input
+                  type="number"
+                  value={customAmount}
+                  onChange={(e) =>
+                    setCustomAmount(parseFloat(e.target.value) || 0)
+                  }
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter custom amount"
+                />
+              </div>
+            )}
           </RadioGroup>
+
+          {/* Display calculated amount */}
+          <div className="mt-2 p-3 bg-muted rounded-lg">
+            <Label>Appointment Amount:</Label>
+            <p className="text-xl font-bold">${calculateAmount().toFixed(2)}</p>
+            {sessionType === "package" && selectedPackage && (
+              <p className="text-sm text-muted-foreground">
+                Package: {getPackageSessions()} sessions
+              </p>
+            )}
+          </div>
         </div>
-        {isPackage && (
-          <>
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="packageSessions">Total Sessions in Package</Label>
-              <Input
-                type="number"
-                id="packageSessions"
-                value={packageSessions}
-                onChange={(e) => setPackageSessions(e.target.value)}
-                min="1"
-                required
-              />
-            </div>
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="sessionsPaid">Sessions Paid For</Label>
-              <Input
-                type="number"
-                id="sessionsPaid"
-                value={sessionsPaid}
-                onChange={(e) => setSessionsPaid(e.target.value)}
-                min="0"
-                max={packageSessions}
-                required
-              />
-            </div>
-          </>
-        )}{" "}
+
         <div className="grid w-full items-center gap-1.5">
           <Label htmlFor="appointmentNotes">Notes (Optional):</Label>
           <Textarea
@@ -392,6 +437,7 @@ function AppointmentForm({
             className="resize-none"
           />
         </div>
+
         <div className="flex flex-col sm:flex-row justify-between gap-2">
           {appointmentToEdit && (
             <Button
@@ -413,6 +459,7 @@ function AppointmentForm({
           </Button>
         </div>
       </form>
+
       {appointmentToEdit && (
         <ConfirmationDialog
           isOpen={isConfirmDeleteDialogOpen}

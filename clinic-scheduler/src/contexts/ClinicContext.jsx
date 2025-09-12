@@ -1,3 +1,4 @@
+// clinic-scheduler/src/contexts/ClinicContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { db } from "../firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";

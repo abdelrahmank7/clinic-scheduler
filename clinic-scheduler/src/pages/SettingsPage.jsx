@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+// src/pages/SettingsPage.jsx
+
+import React, { useState, useEffect, createContext, useContext } from "react";
 import { db } from "../firebase";
 import {
   collection,
@@ -45,6 +47,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { setDoc, Timestamp } from "firebase/firestore";
+import { useClinic } from "@/contexts/ClinicContext";
+
+// --- START NEW CODE ---
+// Create a new context for pricing
+export const PricingContext = createContext(null);
+
+// Create a custom hook to use the pricing data
+export const usePricing = () => useContext(PricingContext);
+
+// Create the pricing provider component
+export const PricingProvider = ({ children }) => {
+  const { selectedClinic } = useClinic();
+  const [pricing, setPricing] = useState(null);
+
+  // Fetch pricing settings based on the selected clinic
+  useEffect(() => {
+    if (!selectedClinic) {
+      setPricing(null); // Reset pricing if no clinic is selected
+      return;
+    }
+
+    const pricingDoc = doc(db, "settings", `pricing_${selectedClinic}`);
+    const unsubscribe = onSnapshot(pricingDoc, (doc) => {
+      if (doc.exists()) {
+        setPricing(doc.data());
+      } else {
+        // Default pricing
+        setPricing({
+          singleSession: 100,
+          packages: [
+            { sessions: 4, price: 350, name: "Basic Package" },
+            { sessions: 8, price: 600, name: "Premium Package" },
+          ],
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [selectedClinic]);
+
+  return (
+    <PricingContext.Provider value={pricing}>
+      {children}
+    </PricingContext.Provider>
+  );
+};
+// --- END NEW CODE ---
 
 const SettingsPage = () => {
   const [user] = useAuthState(auth);
@@ -93,26 +142,40 @@ const SettingsPage = () => {
     return () => unsubscribe();
   }, [selectedClinic]);
 
-  const savePricing = async () => {
-    setLoading(true);
+  const savePricing = async (pricingPayload) => {
     try {
-      await updateDoc(
-        doc(db, "settings", `pricing_${selectedClinic}`),
-        pricing
+      // Defensive: avoid sending DOM events to Firestore
+      if (pricingPayload && pricingPayload.nativeEvent) {
+        console.error(
+          "savePricing called with event instead of payload",
+          pricingPayload
+        );
+        toast({
+          title: "Save failed",
+          description:
+            "Internal error: save handler received an event. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const docId = `pricing_${selectedClinic || "default"}`;
+      const docRef = doc(db, "settings", docId);
+
+      await setDoc(
+        docRef,
+        { ...pricingPayload, updatedAt: Timestamp.now() },
+        { merge: true }
       );
+
+      toast({ title: "Pricing saved", description: "Changes were saved." });
+    } catch (err) {
+      console.error("Error saving pricing:", err);
       toast({
-        title: "Success",
-        description: "Pricing settings saved successfully!",
-      });
-    } catch (error) {
-      console.error("Error saving pricing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save pricing settings.",
+        title: "Error saving pricing",
+        description: err.message || "Failed to save pricing",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -131,6 +194,43 @@ const SettingsPage = () => {
       toast({
         title: "Error",
         description: "Failed to add clinic.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const saveRevenueSharing = async (sharingPayload) => {
+    try {
+      // Defensive: avoid sending DOM events to Firestore
+      if (sharingPayload && sharingPayload.nativeEvent) {
+        console.error(
+          "saveRevenueSharing called with event instead of payload",
+          sharingPayload
+        );
+        toast({
+          title: "Save failed",
+          description:
+            "Internal error: save handler received an event. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const docId = `revenue_${selectedClinic || "default"}`;
+      const docRef = doc(db, "settings", docId);
+
+      await setDoc(
+        docRef,
+        { ...sharingPayload, updatedAt: Timestamp.now() },
+        { merge: true }
+      );
+
+      toast({ title: "Revenue saved", description: "Changes were saved." });
+    } catch (err) {
+      console.error("Error saving revenue sharing:", err);
+      toast({
+        title: "Error saving revenue sharing",
+        description: err.message || "Failed to save revenue sharing",
         variant: "destructive",
       });
     }
@@ -375,26 +475,25 @@ const RevenueSharingSettings = ({ clinicId }) => {
     return () => unsubscribe();
   }, [clinicId]);
 
-  const saveRevenueSharing = async () => {
-    setLoading(true);
+  const saveRevenueSharing = async (sharingPayload) => {
     try {
-      await updateDoc(
-        doc(db, "settings", `revenue_${clinicId}`),
-        revenueSharing
+      const docId = `revenue_${selectedClinic}`;
+      const docRef = doc(db, "settings", docId);
+
+      await setDoc(
+        docRef,
+        { ...sharingPayload, updatedAt: Timestamp.now() },
+        { merge: true }
       );
+
+      toast({ title: "Revenue saved", description: "Changes were saved." });
+    } catch (err) {
+      console.error("Error saving revenue sharing:", err);
       toast({
-        title: "Success",
-        description: "Revenue sharing settings saved successfully!",
-      });
-    } catch (error) {
-      console.error("Error saving revenue sharing:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save revenue sharing settings.",
+        title: "Error saving revenue sharing",
+        description: err.message || "Failed to save revenue sharing",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 

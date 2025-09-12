@@ -1,3 +1,5 @@
+// src/pages/PaymentsPage.jsx
+
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
@@ -37,6 +39,11 @@ import PaymentStatusBadge from "@/components/Payment/PaymentStatusBadge";
 import { format } from "date-fns";
 import { useClinic } from "@/contexts/ClinicContext";
 
+const formatCurrency = (value) =>
+  value == null || isNaN(value)
+    ? "$0.00"
+    : value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
 const PaymentsPage = () => {
   const [payments, setPayments] = useState([]);
   const [filteredPayments, setFilteredPayments] = useState([]);
@@ -70,12 +77,33 @@ const PaymentsPage = () => {
     const unsubscribe = onSnapshot(
       paymentsQuery,
       (querySnapshot) => {
-        const paymentsData = querySnapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-          createdAt: d.data().createdAt.toDate(),
-          sessionDate: d.data().sessionDate.toDate(),
-        }));
+        const paymentsData = querySnapshot.docs.map((d) => {
+          const data = d.data();
+          const createdAtRaw = data.createdAt;
+          // parenthesize the nullish coalescing when mixing with || to satisfy the parser
+          const sessionDateRaw = (data.sessionDate ?? data.session) || null;
+
+          const createdAt =
+            createdAtRaw instanceof Timestamp
+              ? createdAtRaw.toDate()
+              : createdAtRaw
+              ? new Date(createdAtRaw)
+              : new Date();
+
+          const sessionDate =
+            sessionDateRaw instanceof Timestamp
+              ? sessionDateRaw.toDate()
+              : sessionDateRaw
+              ? new Date(sessionDateRaw)
+              : new Date();
+
+          return {
+            id: d.id,
+            ...data,
+            createdAt,
+            sessionDate,
+          };
+        });
         setPayments(paymentsData);
         setFilteredPayments(paymentsData);
         setLoading(false);
@@ -126,7 +154,7 @@ const PaymentsPage = () => {
   }, [payments, filter, dateRange, searchTerm]);
 
   const totalRevenue = filteredPayments.reduce(
-    (sum, payment) => sum + payment.amount,
+    (sum, payment) => sum + (Number(payment.amount) || 0),
     0
   );
 
@@ -162,7 +190,7 @@ const PaymentsPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  ${totalRevenue.toFixed(2)}
+                  {formatCurrency(totalRevenue)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   From {filteredPayments.length} payments
@@ -280,7 +308,7 @@ const PaymentsPage = () => {
                           {format(payment.createdAt, "MMM dd, yyyy HH:mm")}
                         </TableCell>
                         <TableCell>{payment.clientName}</TableCell>
-                        <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrency(payment.amount)}</TableCell>
                         <TableCell className="capitalize">
                           {payment.paymentMethod}
                         </TableCell>

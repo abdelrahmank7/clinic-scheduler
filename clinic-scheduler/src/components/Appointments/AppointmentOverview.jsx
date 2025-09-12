@@ -1,5 +1,3 @@
-// src/components/Appointments/AppointmentOverview.jsx
-
 import React from "react";
 import {
   Dialog,
@@ -90,6 +88,13 @@ const AppointmentOverview = ({ appointment, isOpen, onClose, onEdit }) => {
               />
             </div>
           </div>
+          {/* Display package name if applicable */}
+          {appointment.isPackage && (
+            <div>
+              <Label className="font-semibold">Package</Label>
+              <p>{appointment.packageName}</p>
+            </div>
+          )}
 
           {appointment.isPackage && (
             <div>
@@ -105,7 +110,6 @@ const AppointmentOverview = ({ appointment, isOpen, onClose, onEdit }) => {
           <Button onClick={onClose} variant="secondary">
             Close
           </Button>
-          {/* 👇 FIX: Removed the extra onClose() call from this button */}
           <Button
             onClick={() => {
               onEdit(appointment);

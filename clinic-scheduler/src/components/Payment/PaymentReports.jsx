@@ -25,6 +25,11 @@ import { format, subDays, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { useClinic } from "@/contexts/ClinicContext";
 import { toast } from "@/components/hooks/use-toast";
 
+const formatCurrency = (v) =>
+  v == null || isNaN(v)
+    ? "$0.00"
+    : v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
 const PaymentReports = () => {
   const [payments, setPayments] = useState([]);
   const [dateRange, setDateRange] = useState({
@@ -88,21 +93,23 @@ const PaymentReports = () => {
   }, [isOpen, dateRange, selectedClinic]);
 
   const totalRevenue = payments.reduce(
-    (sum, payment) => sum + payment.amount,
+    (sum, payment) => sum + (Number(payment.amount) || 0),
     0
   );
-  const clinicRevenue = totalRevenue * (revenueSharing.clinicPercentage / 100);
+  const clinicRevenue =
+    totalRevenue * (revenueSharing.clinicPercentage / 100 || 0);
   const physicianRevenue =
-    totalRevenue * (revenueSharing.physicianPercentage / 100);
+    totalRevenue * (revenueSharing.physicianPercentage / 100 || 0);
 
   const revenueByMethod = payments.reduce((acc, payment) => {
     acc[payment.paymentMethod] =
-      (acc[payment.paymentMethod] || 0) + payment.amount;
+      (acc[payment.paymentMethod] || 0) + (Number(payment.amount) || 0);
     return acc;
   }, {});
 
   const revenueByClient = payments.reduce((acc, payment) => {
-    acc[payment.clientName] = (acc[payment.clientName] || 0) + payment.amount;
+    acc[payment.clientName] =
+      (acc[payment.clientName] || 0) + (Number(payment.amount) || 0);
     return acc;
   }, {});
 
@@ -192,15 +199,18 @@ const PaymentReports = () => {
             </thead>
             <tbody>
               ${Object.entries(revenueByMethod)
-                .map(
-                  ([method, amount]) => `
+                .map(([method, amount]) => {
+                  const pct = totalRevenue
+                    ? ((amount / totalRevenue) * 100).toFixed(1)
+                    : "0.0";
+                  return `
                 <tr>
                   <td>${method.charAt(0).toUpperCase() + method.slice(1)}</td>
                   <td>$${amount.toFixed(2)}</td>
-                  <td>${((amount / totalRevenue) * 100).toFixed(1)}%</td>
+                  <td>${pct}%</td>
                 </tr>
-              `
-                )
+              `;
+                })
                 .join("")}
             </tbody>
           </table>
@@ -219,15 +229,18 @@ const PaymentReports = () => {
             <tbody>
               ${Object.entries(revenueByClient)
                 .sort((a, b) => b[1] - a[1])
-                .map(
-                  ([client, amount]) => `
+                .map(([client, amount]) => {
+                  const pct = totalRevenue
+                    ? ((amount / totalRevenue) * 100).toFixed(1)
+                    : "0.0";
+                  return `
                   <tr>
                     <td>${client}</td>
                     <td>$${amount.toFixed(2)}</td>
-                    <td>${((amount / totalRevenue) * 100).toFixed(1)}%</td>
+                    <td>${pct}%</td>
                   </tr>
-                `
-                )
+                `;
+                })
                 .join("")}
             </tbody>
           </table>
@@ -252,10 +265,12 @@ const PaymentReports = () => {
                 <tr>
                   <td>${format(payment.createdAt, "MMM dd, yyyy")}</td>
                   <td>${payment.clientName}</td>
-                  <td>$${payment.amount.toFixed(2)}</td>
+                  <td>$${(Number(payment.amount) || 0).toFixed(2)}</td>
                   <td>${
-                    payment.paymentMethod.charAt(0).toUpperCase() +
-                    payment.paymentMethod.slice(1)
+                    payment.paymentMethod
+                      ? payment.paymentMethod.charAt(0).toUpperCase() +
+                        payment.paymentMethod.slice(1)
+                      : ""
                   }</td>
                   <td>${format(payment.sessionDate, "MMM dd, yyyy")}</td>
                 </tr>
@@ -358,7 +373,7 @@ const PaymentReports = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    $${totalRevenue.toFixed(2)}
+                    {formatCurrency(totalRevenue)}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     From {payments.length} payments
@@ -374,10 +389,10 @@ const PaymentReports = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    $${clinicRevenue.toFixed(2)}
+                    {formatCurrency(clinicRevenue)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    ${revenueSharing.clinicPercentage}% of total
+                    {revenueSharing.clinicPercentage}% of total
                   </p>
                 </CardContent>
               </Card>
@@ -390,10 +405,10 @@ const PaymentReports = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    $${physicianRevenue.toFixed(2)}
+                    {formatCurrency(physicianRevenue)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    ${revenueSharing.physicianPercentage}% of total
+                    {revenueSharing.physicianPercentage}% of total
                   </p>
                 </CardContent>
               </Card>

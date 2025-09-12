@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { db } from "../firebase";
-import { doc, updateDoc, collection, addDoc } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  collection,
+  addDoc,
+  Timestamp,
+} from "firebase/firestore";
 import { toast } from "@/components/hooks/use-toast";
 
 export function usePayments() {
@@ -13,7 +19,7 @@ export function usePayments() {
     try {
       await updateDoc(doc(db, "appointments", appointmentId), {
         ...paymentData,
-        lastPaymentUpdate: new Date(),
+        lastPaymentUpdate: Timestamp.now(),
       });
       return true;
     } catch (error) {
@@ -32,9 +38,10 @@ export function usePayments() {
   const addPaymentRecord = async (paymentData) => {
     setLoading(true);
     try {
+      // Ensure createdAt is a Firestore Timestamp so readers that expect .toDate() work
       await addDoc(collection(db, "payments"), {
         ...paymentData,
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
       });
       return true;
     } catch (error) {

@@ -61,7 +61,7 @@ const SettingsPage = () => {
         id: doc.id,
         ...doc.data(),
       }));
-      setClinics(clinicData);
+      setClinics(clinicsData);
 
       // Set first clinic as default if none selected
       if (clinicsData.length > 0 && !selectedClinic) {

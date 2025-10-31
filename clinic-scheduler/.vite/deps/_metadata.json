@@ -1,0 +1,124 @@
+{
+  "hash": "7431220e",
+  "configHash": "082506f9",
+  "lockfileHash": "1ebdb59e",
+  "browserHash": "1a2ac3c1",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "9c6da707",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "341d895a",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "a331658d",
+      "needsInterop": false
+    },
+    "react-firebase-hooks/auth": {
+      "src": "../../node_modules/react-firebase-hooks/auth/dist/index.esm.js",
+      "file": "react-firebase-hooks_auth.js",
+      "fileHash": "b2ea1262",
+      "needsInterop": false
+    },
+    "firebase/auth": {
+      "src": "../../node_modules/firebase/auth/dist/esm/index.esm.js",
+      "file": "firebase_auth.js",
+      "fileHash": "a55f2c32",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "21ee2c0c",
+      "needsInterop": false
+    },
+    "firebase/firestore": {
+      "src": "../../node_modules/firebase/firestore/dist/esm/index.esm.js",
+      "file": "firebase_firestore.js",
+      "fileHash": "0d685bda",
+      "needsInterop": false
+    },
+    "firebase/app": {
+      "src": "../../node_modules/firebase/app/dist/esm/index.esm.js",
+      "file": "firebase_app.js",
+      "fileHash": "4bd16f5b",
+      "needsInterop": false
+    },
+    "date-fns": {
+      "src": "../../node_modules/date-fns/index.js",
+      "file": "date-fns.js",
+      "fileHash": "57d0d393",
+      "needsInterop": false
+    },
+    "moment": {
+      "src": "../../node_modules/moment/dist/moment.js",
+      "file": "moment.js",
+      "fileHash": "e50654f0",
+      "needsInterop": false
+    },
+    "framer-motion": {
+      "src": "../../node_modules/framer-motion/dist/es/index.mjs",
+      "file": "framer-motion.js",
+      "fileHash": "b828fd68",
+      "needsInterop": false
+    },
+    "react-big-calendar": {
+      "src": "../../node_modules/react-big-calendar/dist/react-big-calendar.esm.js",
+      "file": "react-big-calendar.js",
+      "fileHash": "87e55232",
+      "needsInterop": false
+    },
+    "react-big-calendar/lib/addons/dragAndDrop": {
+      "src": "../../node_modules/react-big-calendar/lib/addons/dragAndDrop/index.js",
+      "file": "react-big-calendar_lib_addons_dragAndDrop.js",
+      "fileHash": "f13ce72c",
+      "needsInterop": true
+    },
+    "date-fns/locale/en-US": {
+      "src": "../../node_modules/date-fns/locale/en-US.js",
+      "file": "date-fns_locale_en-US.js",
+      "fileHash": "67e9039e",
+      "needsInterop": false
+    },
+    "prop-types": {
+      "src": "../../node_modules/prop-types/index.js",
+      "file": "prop-types.js",
+      "fileHash": "0066a5e7",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-BRXXTQST": {
+      "file": "chunk-BRXXTQST.js"
+    },
+    "chunk-HBXR6IMU": {
+      "file": "chunk-HBXR6IMU.js"
+    },
+    "chunk-XBRYKRTD": {
+      "file": "chunk-XBRYKRTD.js"
+    },
+    "chunk-YA4H4QSX": {
+      "file": "chunk-YA4H4QSX.js"
+    },
+    "chunk-HLYW4PQZ": {
+      "file": "chunk-HLYW4PQZ.js"
+    },
+    "chunk-42DVMF4H": {
+      "file": "chunk-42DVMF4H.js"
+    },
+    "chunk-J63SQRER": {
+      "file": "chunk-J63SQRER.js"
+    },
+    "chunk-PLDDJCW6": {
+      "file": "chunk-PLDDJCW6.js"
+    }
+  }
+}

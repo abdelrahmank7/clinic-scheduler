@@ -10,3 +10,17 @@ Currently, two official plugins are available:
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Running tests (developer)
+
+This repo includes a small Vitest test to exercise `PaymentService`.
+
+Install dev dependencies and run tests:
+
+```powershell
+cd "c:\Users\abdel\Desktop\me\Portofolio\clinic-scheduler\clinic-scheduler"
+npm install
+npm run test
+```
+
+If `vitest` isn't available yet, installing dev dependencies with `npm install` will add it.

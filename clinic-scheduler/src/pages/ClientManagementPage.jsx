@@ -98,7 +98,7 @@ function ClientManagementPage() {
   );
 
   return (
-    <div className="w-full gradient-background min-h-screen p-6">
+    <div className="w-full gradient-background min-h-screen p-2">
       <div className="container mx-auto bg-card rounded-xl shadow-lg p-6 min-h-[calc(100vh-48px)] flex flex-col">
         <div className="flex justify-between items-center mb-6 border-b pb-4">
           <h1 className="text-3xl font-bold">Client Management</h1>

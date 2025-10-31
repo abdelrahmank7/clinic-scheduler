@@ -1,62 +1,79 @@
 // src/components/Payment/trackers/PackagePaymentTracker.jsx
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useClinic } from "@/contexts/ClinicContext";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/components/Payment";
+import { formatCurrency } from "@/lib/utils";
+import { PaymentService } from "@/services/payment-service";
+import { toast } from "@/components/ui/use-toast";
 
-const PackagePaymentTracker = ({ appointment }) => {
+export default function PackagePaymentTracker({ appointment, onUpdate }) {
+  const { selectedLocations } = useClinic();
+  const [processing, setProcessing] = React.useState(false);
+
+  // Derived package progress
+  const progress = appointment?.isPackage
+    ? Math.round((appointment.sessionsPaid / appointment.packageSessions) * 100)
+    : 0;
+
+  const handleAddSession = async () => {
+    if (!appointment?.id) return;
+
+    setProcessing(true);
+    try {
+      await PaymentService.processPayment({
+        appointmentId: appointment.id,
+        clientId: appointment.clientId,
+        amount: 0, // Free session
+        isPackage: true,
+        isPrepayment: false,
+        location: selectedLocations[0] || "default",
+      });
+      toast({ title: "Session added successfully" });
+      onUpdate?.();
+    } catch (error) {
+      toast({
+        title: "Failed to add session",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   if (!appointment?.isPackage) return null;
 
-  const totalSessions = appointment.packageSessions || 1;
-  const sessionsPaid = appointment.sessionsPaid || 0;
-  const progress = Math.min((sessionsPaid / totalSessions) * 100, 100);
-  const amountPerSession = (appointment.amount || 0) / totalSessions;
-  const amountPaid = amountPerSession * sessionsPaid;
-
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center justify-between">
-          <span>Package Progress</span>
-          <Badge variant="secondary">
-            {sessionsPaid}/{totalSessions} Sessions
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Progress</span>
-            <span className="font-medium">{progress.toFixed(1)}%</span>
-          </div>
-          <Progress value={progress} className="h-3" />
-        </div>
+    <div className="space-y-4 p-4 border rounded-lg">
+      <div className="flex justify-between items-center">
+        <h3 className="font-medium">Package Progress</h3>
+        <Badge variant={progress >= 100 ? "default" : "secondary"}>
+          {progress}% Complete
+        </Badge>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="space-y-1">
-            <p className="text-muted-foreground">Amount Paid</p>
-            <p className="font-semibold text-lg">
-              {formatCurrency(amountPaid)}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-muted-foreground">Remaining</p>
-            <p className="font-semibold text-lg">
-              {formatCurrency((appointment.amount || 0) - amountPaid)}
-            </p>
-          </div>
-        </div>
+      <Progress value={progress} />
 
-        <div className="pt-2 border-t">
-          <p className="text-xs text-muted-foreground">
-            Package total: {formatCurrency(appointment.amount || 0)} for{" "}
-            {totalSessions} sessions
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p className="text-muted-foreground">Sessions</p>
+          <p>
+            {appointment.sessionsPaid}/{appointment.packageSessions}
           </p>
         </div>
-      </CardContent>
-    </Card>
-  );
-};
+        <div>
+          <p className="text-muted-foreground">Amount Paid</p>
+          <p>{formatCurrency(appointment.amountPaid)}</p>
+        </div>
+      </div>
 
-export default PackagePaymentTracker;
+      {progress < 100 && (
+        <Button size="sm" onClick={handleAddSession} disabled={processing}>
+          {processing ? "Processing..." : "Mark Session Completed"}
+        </Button>
+      )}
+    </div>
+  );
+}

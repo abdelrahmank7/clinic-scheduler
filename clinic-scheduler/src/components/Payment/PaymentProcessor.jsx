@@ -37,7 +37,7 @@ const PaymentProcessor = ({
 
   const { processPayment, loading } = usePayments();
   const { toast } = useToast();
-  const { selectedClinic } = useClinic();
+  const { selectedLocation } = useClinic();
 
   const handlePaymentMethodChange = (data) => {
     setPaymentData(data);
@@ -50,7 +50,7 @@ const PaymentProcessor = ({
   const handleProcessPayment = async () => {
     try {
       const paymentPayload = {
-        clinicId: selectedClinic,
+        location: appointment?.location || selectedLocation || "default",
         appointmentId: appointment?.id || null,
         clientId: appointment?.clientId || null,
         clientName: appointment?.clientName || "",

@@ -1,20 +1,82 @@
+// Paste this ENTIRE content into your Firestore Rules editor in the Firebase Console
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow any authenticated user to read and write clients
+    // --- Core Operational Collections ---
+
+    // Clients: Allow any authenticated user to read/write (consider linking to clinicId)
     match /clients/{clientId} {
       allow read, write: if request.auth != null;
     }
 
-    // Allow any authenticated user to read and write appointments
+    // Appointments: Allow any authenticated user to read/write (consider linking to clinicId)
     match /appointments/{appointmentId} {
       allow read, write: if request.auth != null;
     }
 
-    // Allow any authenticated user to read and write templates
+    // Payments: Allow any authenticated user to read/write (consider linking to clinicId)
+    match /payments/{paymentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // WhatsApp Templates: Allow any authenticated user to read/write
     match /whatsapp_templates/{templateId} {
       allow read, write: if request.auth != null;
+    }
+
+
+    // --- Configuration & Settings Collections ---
+
+    // Settings: Allow any authenticated user to read/write settings documents
+    // (e.g., pricing_clinicX, revenue_clinicX)
+    // Consider more specific rules later if needed (e.g., only users of clinicX can access pricing_clinicX)
+    match /settings/{settingId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Clinics: Allow any authenticated user to read/write clinic documents
+    // (Consider if only admins should create clinics)
+    match /clinics/{clinicId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Locations: Allow any authenticated user to READ locations
+    // WRITE permissions are DENIED by default here - adjust if needed in your app logic
+    match /locations/{locationId} {
+  // Allow reading if user is authenticated
+  allow read: if request.auth != null;
+
+  // Allow creating new locations if user is authenticated
+  // You might want to add checks here later, e.g., ensuring clinicId is provided and valid
+  allow create: if request.auth != null;
+
+  // Example: Restrict updating/deleting to the user who created it or an admin
+  // This requires storing 'createdBy' field in the location document
+  // allow update, delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
+
+  // Placeholder - Deny update/delete for now. Enable selectively if your app allows it.
+  // For testing, you could temporarily allow update/delete to any auth user:
+  allow update, delete: if request.auth != null; // <-- UNCOMMENT FOR TESTING/WIDER ACCESS
+  // Or keep it restricted:
+  // allow update, delete: if false; // Keep restricted
+}
+
+
+    // --- User-Specific Collections ---
+
+    // User Preferences: Allow user to read/write only their own document
+    match /user_preferences/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+
+    // --- Default Deny Rule ---
+    // IMPORTANT: This line MUST be the LAST rule.
+    // It denies access to any path NOT explicitly allowed above.
+    // This is a security best practice.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

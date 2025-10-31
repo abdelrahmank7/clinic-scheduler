@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { db } from "../firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useClinic } from "./ClinicContext";
 
 const PaymentContext = createContext();
 
@@ -13,22 +14,25 @@ export const usePayment = () => {
   return context;
 };
 
-export const PaymentProvider = ({ children, clinicId }) => {
+export const PaymentProvider = ({ children }) => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { selectedLocations } = useClinic();
 
   useEffect(() => {
-    if (!clinicId) {
-      setPayments([]);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-    const paymentsQuery = query(
-      collection(db, "payments"),
-      where("clinicId", "==", clinicId)
-    );
+    let paymentsQuery;
+
+    // If specific locations are selected, filter by them
+    if (selectedLocations.length > 0) {
+      paymentsQuery = query(
+        collection(db, "payments"),
+        where("location", "in", selectedLocations)
+      );
+    } else {
+      // If no locations selected, get all payments
+      paymentsQuery = query(collection(db, "payments"));
+    }
 
     const unsubscribe = onSnapshot(
       paymentsQuery,
@@ -49,7 +53,7 @@ export const PaymentProvider = ({ children, clinicId }) => {
     );
 
     return () => unsubscribe();
-  }, [clinicId]);
+  }, [selectedLocations]); // Re-run effect when selected locations change
 
   const getPaymentHistory = (clientId) => {
     return payments.filter((payment) => payment.clientId === clientId);

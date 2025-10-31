@@ -42,10 +42,10 @@ const PaymentReports = () => {
     clinicPercentage: 60,
     physicianPercentage: 40,
   });
-  const { selectedClinic } = useClinic();
+  const { selectedLocations } = useClinic();
 
   useEffect(() => {
-    if (!isOpen || !selectedClinic) return;
+    if (!isOpen) return;
 
     const startDate = new Date(dateRange.start);
     const endDate = new Date(dateRange.end);
@@ -54,7 +54,7 @@ const PaymentReports = () => {
     // Fetch revenue sharing settings
     const fetchRevenueSharing = async () => {
       try {
-        const revenueDoc = doc(db, "settings", `revenue_${selectedClinic}`);
+        const revenueDoc = doc(db, "settings", "revenue_sharing");
         const docSnap = await getDoc(revenueDoc);
         if (docSnap.exists()) {
           setRevenueSharing(docSnap.data());
@@ -66,13 +66,23 @@ const PaymentReports = () => {
 
     fetchRevenueSharing();
 
-    const paymentsQuery = query(
+    // Build query with location filtering if locations are selected
+    let paymentsQuery = query(
       collection(db, "payments"),
-      where("clinicId", "==", selectedClinic),
       where("sessionDate", ">=", startDate),
       where("sessionDate", "<=", endDate),
       orderBy("sessionDate", "asc")
     );
+
+    if (selectedLocations.length > 0) {
+      paymentsQuery = query(
+        collection(db, "payments"),
+        where("location", "in", selectedLocations),
+        where("sessionDate", ">=", startDate),
+        where("sessionDate", "<=", endDate),
+        orderBy("sessionDate", "asc")
+      );
+    }
 
     const unsubscribe = onSnapshot(
       paymentsQuery,
@@ -91,7 +101,7 @@ const PaymentReports = () => {
     );
 
     return () => unsubscribe();
-  }, [isOpen, dateRange, selectedClinic]);
+  }, [isOpen, dateRange, selectedLocations]);
 
   const totalRevenue = payments.reduce(
     (sum, payment) => sum + (Number(payment.amount) || 0),
@@ -469,173 +479,175 @@ const PaymentReports = () => {
           </DialogTitle>
         </DialogHeader>
 
-        {!selectedClinic ? (
-          <div className="p-4 bg-yellow-50 rounded-md">
+        <div className="space-y-4">
+          {/* Location filter status */}
+          <div className="bg-yellow-50 rounded-md p-4">
             <p className="text-yellow-800">
-              Please select a clinic first to view reports.
+              {selectedLocations.length === 0
+                ? "Currently showing reports for all locations. Select specific locations to filter the data."
+                : `Showing reports for selected locations: ${selectedLocations.join(
+                    ", "
+                  )}`}
             </p>
           </div>
-        ) : (
-          <>
-            {/* Responsive date range inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-date">Start Date</Label>
-                <Input
-                  type="date"
-                  id="start-date"
-                  value={dateRange.start}
-                  onChange={(e) =>
-                    setDateRange({ ...dateRange, start: e.target.value })
-                  }
-                  className="w-full"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end-date">End Date</Label>
-                <Input
-                  type="date"
-                  id="end-date"
-                  value={dateRange.end}
-                  onChange={(e) =>
-                    setDateRange({ ...dateRange, end: e.target.value })
-                  }
-                  className="w-full"
-                />
-              </div>
+          {/* Responsive date range inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-date">Start Date</Label>
+              <Input
+                type="date"
+                id="start-date"
+                value={dateRange.start}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, start: e.target.value })
+                }
+                className="w-full"
+              />
             </div>
-
-            {/* Responsive quick date buttons */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {Object.keys(quickDateRanges).map((range) => (
-                <Button
-                  key={range}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => applyQuickRange(range)}
-                  className="h-10 px-3 text-sm"
-                >
-                  {range}
-                </Button>
-              ))}
+            <div className="space-y-2">
+              <Label htmlFor="end-date">End Date</Label>
+              <Input
+                type="date"
+                id="end-date"
+                value={dateRange.end}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, end: e.target.value })
+                }
+                className="w-full"
+              />
             </div>
+          </div>
 
-            {/* Responsive revenue cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total Revenue
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {formatCurrency(totalRevenue)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    From {payments.length} payments
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Clinic Share
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {formatCurrency(clinicRevenue)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {revenueSharing.clinicPercentage}% of total
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Physician Share
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {formatCurrency(physicianRevenue)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {revenueSharing.physicianPercentage}% of total
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Responsive action buttons */}
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
-              <Button onClick={exportToHTML} className="h-12 sm:h-9">
-                Export to HTML
-              </Button>
+          {/* Responsive quick date buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {Object.keys(quickDateRanges).map((range) => (
               <Button
-                onClick={printHTMLReport}
+                key={range}
                 variant="outline"
-                className="h-12 sm:h-9"
+                size="sm"
+                onClick={() => applyQuickRange(range)}
+                className="h-10 px-3 text-sm"
               >
-                Print Report
+                {range}
               </Button>
-            </div>
+            ))}
+          </div>
 
-            {/* Responsive payment details table */}
-            <div className="border rounded-md">
-              <div className="p-3 sm:p-4 font-semibold bg-muted text-sm sm:text-base">
-                Payment Details
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {payments.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground text-sm">
-                    No payments found in the selected date range
-                  </div>
-                ) : (
-                  <table className="w-full text-xs sm:text-sm">
-                    <thead className="bg-muted sticky top-0">
-                      <tr>
-                        <th className="p-2 sm:p-3 text-left">Date</th>
-                        <th className="p-2 sm:p-3 text-left">Client</th>
-                        <th className="p-2 sm:p-3 text-left">Amount</th>
-                        <th className="p-2 sm:p-3 text-left">Method</th>
-                        <th className="p-2 sm:p-3 text-left">Session Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map((payment) => (
-                        <tr
-                          key={payment.id}
-                          className="border-t hover:bg-muted/50"
-                        >
-                          <td className="p-2 sm:p-3">
-                            {format(payment.createdAt, "MMM dd, yyyy")}
-                          </td>
-                          <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-none">
-                            {payment.clientName}
-                          </td>
-                          <td className="p-2 sm:p-3">
-                            ${payment.amount.toFixed(2)}
-                          </td>
-                          <td className="p-2 sm:p-3 capitalize">
-                            {payment.paymentMethod}
-                          </td>
-                          <td className="p-2 sm:p-3">
-                            {format(payment.sessionDate, "MMM dd, yyyy")}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+          {/* Responsive revenue cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Revenue
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">
+                  {formatCurrency(totalRevenue)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  From {payments.length} payments
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Clinic Share
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">
+                  {formatCurrency(clinicRevenue)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {revenueSharing.clinicPercentage}% of total
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Physician Share
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">
+                  {formatCurrency(physicianRevenue)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {revenueSharing.physicianPercentage}% of total
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Responsive action buttons */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <Button onClick={exportToHTML} className="h-12 sm:h-9">
+              Export to HTML
+            </Button>
+            <Button
+              onClick={printHTMLReport}
+              variant="outline"
+              className="h-12 sm:h-9"
+            >
+              Print Report
+            </Button>
+          </div>
+
+          {/* Responsive payment details table */}
+          <div className="border rounded-md">
+            <div className="p-3 sm:p-4 font-semibold bg-muted text-sm sm:text-base">
+              Payment Details
             </div>
-          </>
-        )}
+            <div className="max-h-80 overflow-y-auto">
+              {payments.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground text-sm">
+                  No payments found in the selected date range
+                </div>
+              ) : (
+                <table className="w-full text-xs sm:text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="p-2 sm:p-3 text-left">Date</th>
+                      <th className="p-2 sm:p-3 text-left">Client</th>
+                      <th className="p-2 sm:p-3 text-left">Amount</th>
+                      <th className="p-2 sm:p-3 text-left">Method</th>
+                      <th className="p-2 sm:p-3 text-left">Session Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => (
+                      <tr
+                        key={payment.id}
+                        className="border-t hover:bg-muted/50"
+                      >
+                        <td className="p-2 sm:p-3">
+                          {format(payment.createdAt, "MMM dd, yyyy")}
+                        </td>
+                        <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-none">
+                          {payment.clientName}
+                        </td>
+                        <td className="p-2 sm:p-3">
+                          ${payment.amount.toFixed(2)}
+                        </td>
+                        <td className="p-2 sm:p-3 capitalize">
+                          {payment.paymentMethod}
+                        </td>
+                        <td className="p-2 sm:p-3">
+                          {format(payment.sessionDate, "MMM dd, yyyy")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

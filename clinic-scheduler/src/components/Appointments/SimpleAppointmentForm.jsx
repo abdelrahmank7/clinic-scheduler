@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { db } from "../../firebase";
 import { addDoc, collection } from "firebase/firestore";
-import { getClosedDays } from "@/services/closed-day-service";
 import { toast } from "../hooks/use-toast";
 import { formatDateTime, formatTime } from "../../utils/date-helpers";
 
@@ -49,22 +48,6 @@ function SimpleAppointmentForm({ onSave, initialData, onCancel }) {
     };
 
     try {
-      // Check closed days for the appointment date (compare date-only)
-      const apptDate = new Date(initialData.start);
-      apptDate.setHours(0, 0, 0, 0);
-      const start = new Date(apptDate);
-      const end = new Date(apptDate);
-      end.setHours(23, 59, 59, 999);
-      const closed = await getClosedDays({ start, end });
-      if (closed && closed.length > 0) {
-        toast({
-          title: "Cannot schedule",
-          description: "Selected date is marked as closed.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
       await addDoc(collection(db, "appointments"), appointmentData);
       toast({
         title: "Appointment created",

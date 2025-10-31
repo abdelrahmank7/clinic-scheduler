@@ -3,17 +3,15 @@ import React, { useState, useEffect } from "react";
 import { db } from "../../firebase";
 import {
   collection,
+  addDoc,
   query,
   orderBy,
   updateDoc,
   doc,
+  deleteDoc,
   onSnapshot,
-  getDocs,
-  where,
 } from "firebase/firestore";
-import { getDoc } from "firebase/firestore";
 import { toast } from "../hooks/use-toast";
-import { PaymentService } from "@/services/payment-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,8 +26,7 @@ import {
 import ConfirmationDialog from "@/components/ui/ConfirmationDialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useClinic } from "@/contexts/ClinicContext";
-import { useLocationPricing } from "@/hooks/useLocationPricing"; // Import the new hook
-import { Package } from "lucide-react";
+import { usePricing } from "@/contexts/PricingContext";
 
 const formatDateForInput = (date) => {
   if (!date) return "";
@@ -62,36 +59,14 @@ function AppointmentForm({
     useState(false);
 
   // Simplified payment fields
-  const [sessionType, setSessionType] = useState("package"); // package only
+  const [sessionType, setSessionType] = useState("single"); // single, package, custom
   const [selectedPackage, setSelectedPackage] = useState("");
+  const [customAmount, setCustomAmount] = useState(0);
   const [packageName, setPackageName] = useState("");
-  // Remove availablePackageSessions state as we're not tracking sessions per appointment anymore
-  // const [availablePackageSessions, setAvailablePackageSessions] = useState([]);
-  const [usePaidSession, setUsePaidSession] = useState(false); // Checkbox for using paid session
-  const [clientRemainingSessions, setClientRemainingSessions] = useState(0); // Track client's remaining sessions
 
-  // --- APPOINTMENT LOCATION STATE ---
-  const [selectedAppointmentLocation, setSelectedAppointmentLocation] =
-    useState("");
-  const { allLocations } = useClinic(); // Get all locations for the single instance
+  const { selectedClinic } = useClinic();
+  const { pricing } = usePricing();
 
-  // --- FETCH LOCATION-SPECIFIC PRICING ---
-  const {
-    pricing: locationSpecificPricing,
-    loading: pricingLoading,
-    error: pricingError,
-  } = useLocationPricing(selectedAppointmentLocation);
-
-  // --- SET DEFAULT LOCATION ON LOAD/EDIT ---
-  useEffect(() => {
-    if (appointmentToEdit?.location) {
-      setSelectedAppointmentLocation(appointmentToEdit.location);
-    } else if (allLocations.length > 0 && !selectedAppointmentLocation) {
-      setSelectedAppointmentLocation(allLocations[0]); // Default to first location
-    }
-  }, [appointmentToEdit, allLocations, selectedAppointmentLocation]);
-
-  // --- FETCH CLIENTS FOR THE SINGLE INSTANCE ---
   useEffect(() => {
     const clientsCollection = collection(db, "clients");
     const q = query(clientsCollection, orderBy("name"));
@@ -107,39 +82,11 @@ function AppointmentForm({
       },
       (error) => {
         console.error("Error fetching clients for form:", error);
-        setAllClients([]);
         setIsClientLoading(false);
       }
     );
     return () => unsubscribe();
   }, []);
-
-  // --- FIND CLIENT'S REMAINING SESSIONS ---
-  useEffect(() => {
-    const findClientRemainingSessions = async () => {
-      // Only check if a client is selected and it's a package appointment
-      if (sessionType !== "package" || !clientId) {
-        setClientRemainingSessions(0);
-        setUsePaidSession(false);
-        return;
-      }
-
-      try {
-        const clientRef = doc(db, "clients", clientId);
-        const clientSnap = await getDoc(clientRef);
-        const clientData = clientSnap.exists() ? clientSnap.data() : null;
-        const remaining = clientData?.remainingSessions || 0;
-        setClientRemainingSessions(remaining);
-        setUsePaidSession(remaining > 0); // Allow using paid session only if remaining > 0
-      } catch (err) {
-        console.error("Error checking client remainingSessions:", err);
-        setClientRemainingSessions(0);
-        setUsePaidSession(false);
-      }
-    };
-
-    findClientRemainingSessions();
-  }, [clientId, sessionType]); // Depend on clientId and sessionType
 
   useEffect(() => {
     if (isClientLoading) return;
@@ -150,7 +97,6 @@ function AppointmentForm({
       setStartDateTime(formatDateForInput(appointmentToEdit.start));
       setEndDateTime(formatDateForInput(appointmentToEdit.end));
       setNotes(appointmentToEdit.notes || "");
-      setSelectedAppointmentLocation(appointmentToEdit.location || ""); // Set location from edit data
 
       // Set session type based on existing appointment
       if (appointmentToEdit.isPackage) {
@@ -168,8 +114,9 @@ function AppointmentForm({
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
 
       // Reset to defaults
-      setSessionType("package");
+      setSessionType("single");
       setSelectedPackage("");
+      setCustomAmount(0);
       setPackageName("");
     } else {
       setClientId("");
@@ -179,8 +126,9 @@ function AppointmentForm({
       setEndDateTime(initialEnd ? formatDateForInput(initialEnd) : "");
 
       // Reset to defaults
-      setSessionType("package");
+      setSessionType("single");
       setSelectedPackage("");
+      setCustomAmount(0);
       setPackageName("");
     }
   }, [
@@ -191,13 +139,17 @@ function AppointmentForm({
     isClientLoading,
   ]);
 
-  // --- CALCULATE AMOUNT USING LOCATION-SPECIFIC PRICING ---
+  // Calculate amount based on session type
   const calculateAmount = () => {
-    if (sessionType === "package" && selectedPackage) {
-      const pkg = (locationSpecificPricing?.packages || []).find(
+    if (sessionType === "single") {
+      return pricing?.singleSession || 100;
+    } else if (sessionType === "package" && selectedPackage) {
+      const pkg = (pricing?.packages || []).find(
         (p) => p.id === selectedPackage
       );
       return pkg ? pkg.price : 0;
+    } else if (sessionType === "custom") {
+      return customAmount || 0;
     }
     return 0;
   };
@@ -205,7 +157,7 @@ function AppointmentForm({
   // Get package sessions
   const getPackageSessions = () => {
     if (sessionType === "package" && selectedPackage) {
-      const pkg = (locationSpecificPricing?.packages || []).find(
+      const pkg = (pricing?.packages || []).find(
         (p) => p.id === selectedPackage
       );
       return pkg ? pkg.sessions : 1;
@@ -216,7 +168,7 @@ function AppointmentForm({
   // Get package name
   const getPackageName = () => {
     if (sessionType === "package" && selectedPackage) {
-      const pkg = (locationSpecificPricing?.packages || []).find(
+      const pkg = (pricing?.packages || []).find(
         (p) => p.id === selectedPackage
       );
       return pkg ? pkg.name : "";
@@ -231,47 +183,12 @@ function AppointmentForm({
       return;
     }
 
-    if (!selectedAppointmentLocation) {
-      toast({
-        title: "Please select a location for the appointment.",
-        variant: "destructive",
-      });
+    if (!selectedClinic) {
+      toast({ title: "Please select a clinic first.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
-
-    // --- Define if using a centralized remaining session ---
-    const isUsingCentralRemaining = usePaidSession && sessionType === "package";
-    if (isUsingCentralRemaining) {
-      // Verify client's centralized remainingSessions is > 0 before proceeding.
-      try {
-        const clientRefCheck = doc(db, "clients", clientId);
-        const clientSnapCheck = await getDoc(clientRefCheck);
-        const clientDataCheck = clientSnapCheck.exists()
-          ? clientSnapCheck.data()
-          : null;
-        const clientRemainingCheck = clientDataCheck?.remainingSessions || 0;
-        if (clientRemainingCheck <= 0) {
-          setLoading(false);
-          toast({
-            title: "No Remaining Sessions",
-            description:
-              "This client has no remaining prepaid sessions. Please process a package payment first.",
-            variant: "destructive",
-          });
-          return;
-        }
-      } catch (error_) {
-        console.error(
-          "Error checking client remainingSessions before booking:",
-          error_
-        );
-        setLoading(false);
-        return; // Exit if check fails
-      }
-    }
-
     try {
       const startDateObj = new Date(startDateTime);
       const endDateObj = new Date(endDateTime);
@@ -279,22 +196,6 @@ function AppointmentForm({
         allClients.find((c) => c.id === clientId)?.name || "Unknown Client";
 
       const amount = calculateAmount();
-
-      // Determine payment status and session count
-      // --- UPDATE: Initialize from appointmentToEdit or defaults ---
-      let finalPaymentStatus = appointmentToEdit?.paymentStatus || "unpaid";
-      let finalSessionsPaid = appointmentToEdit?.sessionsPaid || 0;
-      let finalAmountPaid = appointmentToEdit?.amountPaid || 0;
-
-      // If using a paid session, mark this appointment as paid and update counts
-      if (isUsingCentralRemaining) {
-        finalPaymentStatus = "paid";
-        // Increment sessionsPaid by 1 if using a remaining session during edit
-        // For a *new* appointment created with a remaining session, sessionsPaid would be set to 1
-        finalSessionsPaid = appointmentToEdit ? finalSessionsPaid + 1 : 1; // If editing, add 1; if new, set to 1
-        finalAmountPaid = finalAmountPaid + amount; // Add the new amount to any existing amount paid
-      }
-      // If NOT using a remaining session, preserve the original values (handled by initialization above)
 
       const appointmentData = {
         clientId,
@@ -304,39 +205,27 @@ function AppointmentForm({
         end: endDateObj,
         notes,
         amount: parseFloat(amount),
-        paymentStatus: finalPaymentStatus, // Use the determined status
+        paymentStatus: "unpaid", // Always start as unpaid
         isPackage: sessionType === "package",
-        packageSessions: getPackageSessions(),
-        sessionsPaid: finalSessionsPaid, // Use the determined sessionsPaid
+        packageSessions: sessionType === "package" ? getPackageSessions() : 1,
+        sessionsPaid: 0, // Always start with 0 sessions paid
         packageName: getPackageName(),
         packageId: sessionType === "package" ? selectedPackage : null,
-        amountPaid: finalAmountPaid, // Use the determined amountPaid
         lastPaymentUpdate: new Date(),
-        location: selectedAppointmentLocation, // Location for appointment
-        // Indicate that the session was consumed from the client's centralized pool (only if applicable)
-        ...(isUsingCentralRemaining && { usedCentralRemaining: true }),
+        clinicId: selectedClinic,
+        createdAt: new Date(),
       };
 
       if (appointmentToEdit) {
-        // For edits, perform a simple update (payment status/session counts handled by logic above)
         await updateDoc(
           doc(db, "appointments", appointmentToEdit.id),
           appointmentData
         );
         toast({ title: "Success", description: "Appointment updated!" });
       } else {
-        // Use the transactional helper to create appointment and consume session atomically
-        // Pass null for packageAppointmentToDeduct since we're using centralized sessions
-        const result = await PaymentService.createAppointmentAndConsumeSession(
-          appointmentData,
-          null // No specific package appointment to deduct from
-        );
-        if (!result.success)
-          throw new Error(result.error || "Failed to create appointment");
+        await addDoc(collection(db, "appointments"), appointmentData);
         toast({ title: "Success", description: "Appointment added!" });
       }
-
-      // session consumption handled transactionally by PaymentService.createAppointmentAndConsumeSession
 
       if (onAppointmentAdded) onAppointmentAdded();
     } catch (err) {
@@ -362,19 +251,14 @@ function AppointmentForm({
     setIsConfirmDeleteDialogOpen(false);
 
     try {
-      // Use PaymentService to delete appointment and return sessions transactionally
-      const result = await PaymentService.deleteAppointmentAndReturnSession(
-        appointmentToEdit.id,
-        appointmentToEdit
-      );
-      if (!result.success)
-        throw new Error(result.error || "Failed to delete appointment");
-
+      await deleteDoc(doc(db, "appointments", appointmentToEdit.id));
       toast({
         title: "Success",
         description: "Appointment deleted successfully!",
       });
-      if (onAppointmentDeleted) onAppointmentDeleted();
+      if (onAppointmentDeleted) {
+        onAppointmentDeleted();
+      }
     } catch (err) {
       console.error("Error deleting appointment:", err);
       toast({
@@ -445,27 +329,6 @@ function AppointmentForm({
           </Select>
         </div>
 
-        {/* --- APPOINTMENT LOCATION SELECTION --- */}
-        <div className="grid w-full items-center gap-1.5">
-          <Label htmlFor="locationSelect">Location:</Label>
-          <Select
-            value={selectedAppointmentLocation}
-            onValueChange={setSelectedAppointmentLocation}
-            required
-          >
-            <SelectTrigger id="locationSelect">
-              <SelectValue placeholder="Select a location..." />
-            </SelectTrigger>
-            <SelectContent>
-              {allLocations.map((location) => (
-                <SelectItem key={location} value={location}>
-                  {location}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="grid w-full items-center gap-1.5">
             <Label htmlFor="startDateTime">Start Time:</Label>
@@ -491,82 +354,66 @@ function AppointmentForm({
 
         {/* Simplified Session Type Selection */}
         <div className="space-y-4 p-4 bg-white rounded-lg border">
-          <Label className="text-lg font-semibold flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Session Type
-          </Label>
+          <Label className="text-lg font-semibold">Session Type</Label>
 
-          <div className="space-y-2">
-            {pricingLoading && <p>Loading packages...</p>}
-            {pricingError && (
-              <p className="text-destructive">
-                Error loading packages: {pricingError.message}
-              </p>
-            )}
-            {/* Show Select Package only if NOT using paid session OR no remaining sessions */}
-            {(!usePaidSession || clientRemainingSessions <= 0) && (
-              <Select
-                value={selectedPackage}
-                onValueChange={setSelectedPackage}
-                disabled={
-                  pricingLoading || !locationSpecificPricing?.packages?.length
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      pricingLoading ? "Loading..." : "Select a package"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {(locationSpecificPricing?.packages || []).map((pkg) => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {pkg.sessions} sessions (${pkg.price})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Show Available Paid Sessions section only if using paid session AND sessions exist */}
-          {usePaidSession && clientRemainingSessions > 0 && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-              <Label className="font-medium text-green-800 flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Available Paid Sessions (Centralized)
-              </Label>
-              <p className="mt-1 text-sm text-green-700">
-                Client has <strong>{clientRemainingSessions}</strong> remaining
-                session{clientRemainingSessions !== 1 ? "s" : ""}.
-              </p>
-              <p className="mt-1 text-xs text-green-600 italic">
-                This appointment will be marked as 'Paid'. One session will be
-                deducted from the client's centralized pool.
-              </p>
+          <RadioGroup
+            value={sessionType}
+            onValueChange={(value) => setSessionType(value)}
+            className="space-y-3"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="single" id="single" />
+              <Label htmlFor="single">Single Session</Label>
+              <span className="text-muted-foreground ml-2">
+                (${pricing?.singleSession || 100})
+              </span>
             </div>
-          )}
 
-          {/* Checkbox to toggle between using paid sessions and selecting a new package */}
-          {sessionType === "package" && (
-            <div className="flex items-center mt-2">
-              <input
-                type="checkbox"
-                id="use-paid-session-toggle"
-                checked={usePaidSession}
-                onChange={(e) => setUsePaidSession(e.target.checked)}
-                className="h-4 w-4 text-green-600 rounded focus:ring-green-500"
-                disabled={clientRemainingSessions <= 0} // Disable if no sessions
-              />
-              <Label
-                htmlFor="use-paid-session-toggle"
-                className="ml-2 text-sm text-green-700"
-              >
-                Use existing paid session(s) from centralized pool
-              </Label>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="package" id="package" />
+              <Label htmlFor="package">Package</Label>
             </div>
-          )}
+
+            {sessionType === "package" && (
+              <div className="ml-6 space-y-2">
+                <Select
+                  value={selectedPackage}
+                  onValueChange={setSelectedPackage}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a package" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(pricing?.packages || []).map((pkg) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.name} - {pkg.sessions} sessions (${pkg.price})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="custom" id="custom" />
+              <Label htmlFor="custom">Custom Amount</Label>
+            </div>
+
+            {sessionType === "custom" && (
+              <div className="ml-6 space-y-2">
+                <Input
+                  type="number"
+                  value={customAmount}
+                  onChange={(e) =>
+                    setCustomAmount(parseFloat(e.target.value) || 0)
+                  }
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter custom amount"
+                />
+              </div>
+            )}
+          </RadioGroup>
 
           {/* Display calculated amount */}
           <div className="mt-2 p-3 bg-muted rounded-lg">

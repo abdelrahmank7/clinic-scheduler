@@ -139,10 +139,8 @@ function ClientSelector({
 
   const visibleClients = useMemo(() => {
     if (!searchQuery) {
-      // Show only last 5 clients when not searching
-      return clients.slice(-5);
+      return clients;
     }
-    // Show all matching clients when searching
     return clients.filter(
       (client) =>
         client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

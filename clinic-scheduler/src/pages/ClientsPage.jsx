@@ -1,4 +1,5 @@
 // src/pages/ClientsPage.jsx
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,7 @@ import {
   updateDoc,
   doc,
   deleteDoc,
-  where, // Import where for filtering if needed elsewhere
 } from "firebase/firestore";
-import { useClinic } from "@/contexts/ClinicContext"; // Import useClinic
 
 import ClientForm from "../components/Clients/ClientForm";
 import ClientList from "../components/Clients/ClientList";
@@ -41,16 +40,12 @@ function ClientsPage() {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const { loading: clinicContextLoading } = useClinic();
-
   const clientsCollectionRef = collection(db, "clients");
 
   useEffect(() => {
-    // Build base query - no clinic filtering needed
-    let clientsQuery = query(clientsCollectionRef, orderBy("name"));
-
+    const q = query(clientsCollectionRef, orderBy("name"));
     const unsubscribe = onSnapshot(
-      clientsQuery,
+      q,
       (snapshot) => {
         const clientsData = snapshot.docs.map((document) => ({
           ...document.data(),
@@ -66,53 +61,21 @@ function ClientsPage() {
     );
 
     return () => unsubscribe();
-  }, [clientsCollectionRef]); // Only depend on the collection reference
+  }, []);
 
   const handleSaveClient = async (clientData) => {
     try {
       if (editingClient) {
-        // Validate that we have a valid ID
-        if (!editingClient.id) {
-          throw new Error("Invalid client ID for update");
-        }
-
-        // Remove id and any undefined fields from updateData
-        const { id: _id, ...rest } = clientData;
-        const updateData = Object.entries(rest).reduce((acc, [key, value]) => {
-          if (value !== undefined) {
-            acc[key] = value;
-          }
-          return acc;
-        }, {});
-
-        // Use the editingClient.id for the doc reference
-        await updateDoc(doc(db, "clients", editingClient.id), updateData);
+        await updateDoc(doc(db, "clients", clientData.id), clientData);
         toast({ title: "Client Updated" });
       } else {
-        // For new clients, remove any undefined fields
-        const newClientData = Object.entries(clientData).reduce(
-          (acc, [key, value]) => {
-            if (value !== undefined) {
-              acc[key] = value;
-            }
-            return acc;
-          },
-          {}
-        );
-
-        await addDoc(clientsCollectionRef, newClientData);
+        await addDoc(clientsCollectionRef, clientData);
         toast({ title: "Client Added" });
       }
       setIsDialogOpen(false);
       setEditingClient(null);
     } catch (error) {
       console.error("Error saving client:", error);
-      // Optionally, show a toast error here too
-      toast({
-        title: "Error Saving Client",
-        description: error.message || "An unknown error occurred.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -159,17 +122,8 @@ function ClientsPage() {
         client.club.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  if (clinicContextLoading) {
-    // Use clinicContextLoading
-    return (
-      <div className="flex justify-center items-center h-screen">
-        Loading locations...
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full gradient-background min-h-screen p-2">
+    <div className="w-full gradient-background min-h-screen p-6">
       {loading ? (
         <div className="flex justify-center items-center h-screen">
           <p className="text-foreground">Loading clients...</p>
@@ -222,6 +176,9 @@ function ClientsPage() {
             </div>
           </div>
 
+          {/* ========================================================= */}
+          {/* 👇 THIS IS THE DIALOG THAT WAS FIXED                      */}
+          {/* ========================================================= */}
           <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
             <DialogContent className="sm:max-w-[425px]">
               {viewingClient && (
@@ -289,6 +246,7 @@ function ClientsPage() {
             </DialogContent>
           </Dialog>
 
+          {/* This is the Confirmation Dialog for Deleting */}
           <ConfirmationDialog
             isOpen={isConfirmOpen}
             onOpenChange={setIsConfirmOpen}

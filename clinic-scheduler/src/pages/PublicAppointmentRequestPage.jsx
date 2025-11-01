@@ -380,6 +380,18 @@ const PublicAppointmentRequestPage = () => {
               We're here to help. Fill out the form and we'll get back to you
               soon.
             </motion.p>
+            {/* --- ADD ADMIN LOGIN BUTTON --- */}
+            <motion.div variants={itemVariants} className="mt-2 sm:mt-3">
+              <Button
+                variant="outline" // Use an outline button to make it less prominent
+                size="sm" // Use a smaller size
+                onClick={() => (window.location.href = "/admin-login")} // Navigate to the new admin login route
+                className="text-xs sm:text-sm text-white/90 border-white/30 hover:bg-white/10" // Style for visibility on dark background
+              >
+                Admin Login
+              </Button>
+            </motion.div>
+            {/* --- END ADD ADMIN LOGIN BUTTON --- */}
           </motion.div>
 
           {/* --- Main Card (Animated Entry) --- */}

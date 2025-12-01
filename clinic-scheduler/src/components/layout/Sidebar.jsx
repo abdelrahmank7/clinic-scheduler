@@ -31,10 +31,15 @@ const navItems = [
   { name: "Payments", href: "/payments", icon: DollarSign },
   { name: "Closed Days", href: "/closed-days", icon: Calendar },
   { name: "Packages", href: "/packages", icon: Package },
+  // --- ADD REPORTS TO THE MAIN NAVIGATION LIST ---
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Appointment Requests", href: "/appointment-requests", icon: Clock }, // Use an appropriate icon
+  {
+    name: "Appointment Requests",
+    href: "/appointment-requests",
+    icon: Clock,
+  }, // Use an appropriate icon
 ];
 
 const Sidebar = ({ className = "", isCollapsed = false, onToggleCollapse }) => {
@@ -119,11 +124,12 @@ const Sidebar = ({ className = "", isCollapsed = false, onToggleCollapse }) => {
                     Manage Closed Days
                   </Button>
                 </Link>
-                <Link to="/reports" onClick={() => setIsOpen(false)}>
+                {/* --- REMOVE REPORTS BUTTON FROM HERE AS IT'S NOW IN THE MAIN LIST --- */}
+                {/* <Link to="/reports" onClick={() => setIsOpen(false)}>
                   <Button variant="outline" className="w-full text-xs">
                     Reports
                   </Button>
-                </Link>
+                </Link> */}
               </div>
               <Button
                 variant="ghost"
@@ -201,11 +207,12 @@ const Sidebar = ({ className = "", isCollapsed = false, onToggleCollapse }) => {
                   Manage Closed Days
                 </Button>
               </Link>
-              <Link to="/reports" className="block">
+              {/* --- REMOVE REPORTS BUTTON FROM HERE AS IT'S NOW IN THE MAIN LIST --- */}
+              {/* <Link to="/reports" className="block">
                 <Button variant="outline" className="w-full text-xs">
                   Reports
                 </Button>
-              </Link>
+              </Link> */}
             </div>
           )}
           <Button

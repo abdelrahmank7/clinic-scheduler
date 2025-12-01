@@ -4,6 +4,8 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
+// --- Import the ErrorBoundary ---
+import ErrorBoundary from "@/components/ErrorBoundary"; // Import the ErrorBoundary component
 
 const MainLayout = () => {
   const navigate = useNavigate();
@@ -63,9 +65,13 @@ const MainLayout = () => {
           <div>{/* Placeholder for user info, clinic selector, etc. */}</div>
         </header>
 
-        {/* Page content */}
+        {/* Page content - Wrapped with ErrorBoundary */}
         <main className="p-0 md:p-1">
-          <Outlet />
+          {/* --- IMPORTANT: Wrap the Outlet with ErrorBoundary --- */}
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
+          {/* --- END WRAP --- */}
         </main>
       </div>
     </div>

@@ -1,8 +1,11 @@
 // src/pages/PublicAppointmentRequestPage.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate for redirect after login
 import { motion } from "framer-motion"; // Import framer-motion
-import { db } from "../firebase";
+import { db, auth } from "../firebase"; // Import auth
 import { collection, addDoc, getDocs } from "firebase/firestore";
+import { signInWithEmailAndPassword, getIdTokenResult } from "firebase/auth"; // Import signInWithEmailAndPassword and getIdTokenResult
+import { useAuthState } from "react-firebase-hooks/auth"; // Import useAuthState if needed for checks within the modal
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +19,13 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog, // Import Dialog components
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Loader2,
   Calendar,
@@ -72,6 +82,7 @@ function weightedRandomIndex(weights) {
 }
 
 const PublicAppointmentRequestPage = () => {
+  // --- State for Public Request Form ---
   const [formData, setFormData] = useState({
     requesterName: "",
     requesterPhone: "",
@@ -86,7 +97,16 @@ const PublicAppointmentRequestPage = () => {
   const [availableLocations, setAvailableLocations] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // --- State for Embedded Admin Login Modal ---
+  const [isLoginOpen, setIsLoginOpen] = useState(false); // Controls the login dialog visibility
+  const [loginUsernameOrEmail, setLoginUsernameOrEmail] = useState(""); // Username/Email for login form
+  const [loginPassword, setLoginPassword] = useState(""); // Password for login form
+  const [loginLoading, setLoginLoading] = useState(false); // Loading state for login submission
+  const [user] = useAuthState(auth); // Get the current user state (optional, mainly for useEffect check)
+
   const { toast } = useToast();
+  const navigate = useNavigate(); // Hook for navigation after successful login
 
   // --- SELECT A RANDOM BACKGROUND IMAGE ON MOUNT ---
   const [randomBgImage] = useState(() => {
@@ -129,6 +149,42 @@ const PublicAppointmentRequestPage = () => {
 
     fetchLocations();
   }, [toast]);
+
+  // --- CHECK USER TYPE AND REDIRECT AFTER LOGIN (WHEN USER STATE CHANGES) ---
+  // This useEffect handles redirecting the admin after they log in via the modal
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      if (user) {
+        // If user is now logged in (via the login modal)
+        try {
+          const idTokenResult = await getIdTokenResult(user);
+          const userType = idTokenResult.claims.userType || "admin"; // Default to admin if claim not set
+          if (userType === "admin") {
+            // Close the login modal if it's open
+            setIsLoginOpen(false);
+            // Redirect to admin dashboard after successful admin login
+            navigate("/dashboard");
+          } else if (userType === "client") {
+            // This shouldn't happen on the public login form for admins, but handle gracefully
+            console.warn("Client user logged in via admin form.");
+            // Optionally redirect client users elsewhere or show an error
+            // navigate("/client-portal"); // If you had a client portal route
+          } else {
+            // Handle other potential user types if needed
+            console.warn("Unknown user type:", userType);
+            // Default fallback for admin login
+            navigate("/dashboard");
+          }
+        } catch (error) {
+          console.error("Error getting user claims after login:", error);
+          // If claim check fails, assume admin for the admin login context
+          navigate("/dashboard");
+        }
+      }
+    };
+
+    checkAndRedirect();
+  }, [user, navigate]); // Run this effect when the 'user' state changes
 
   const handleChange = (e) => {
     const { id, value } = e.target;
@@ -294,6 +350,53 @@ const PublicAppointmentRequestPage = () => {
     }
   };
 
+  // --- HANDLE ADMIN LOGIN SUBMISSION ---
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+
+    try {
+      // Attempt standard email/password login using Firebase Auth
+      await signInWithEmailAndPassword(
+        auth,
+        loginUsernameOrEmail,
+        loginPassword
+      );
+      // SUCCESS: Do NOT navigate here.
+      // The useEffect hook that watches the 'user' state ([user, navigate]) will trigger
+      // and handle the redirect based on user type after the state updates.
+      // The user state update triggers the useEffect above.
+      toast({
+        title: "Login Successful",
+        description: "Redirecting to dashboard...",
+      });
+    } catch (error) {
+      console.error("Login error: ", error);
+      let errorMessage = "Login failed. Please check your credentials.";
+      if (error.code === "auth/user-not-found") {
+        errorMessage = "Username or email not found.";
+      } else if (error.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password.";
+      }
+      toast({
+        title: "Login Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  // --- CLOSE LOGIN MODAL HANDLER ---
+  const handleCloseLogin = () => {
+    setIsLoginOpen(false);
+    // Optional: Reset login form state when closing
+    // setLoginUsernameOrEmail("");
+    // setLoginPassword("");
+    // setLoginLoading(false);
+  };
+
   // --- Animation Variants ---
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -381,11 +484,12 @@ const PublicAppointmentRequestPage = () => {
               soon.
             </motion.p>
             {/* --- ADD ADMIN LOGIN BUTTON --- */}
+            {/* --- CHANGED: Button now opens the embedded login modal --- */}
             <motion.div variants={itemVariants} className="mt-2 sm:mt-3">
               <Button
                 variant="outline" // Use an outline button to make it less prominent
                 size="sm" // Use a smaller size
-                onClick={() => (window.location.href = "/admin-login")} // Navigate to the new admin login route
+                onClick={() => setIsLoginOpen(true)} // Open the login dialog
                 className="text-xs sm:text-sm text-white/90 border-white/30 hover:bg-white/10" // Style for visibility on dark background
               >
                 Admin Login
@@ -831,6 +935,46 @@ const PublicAppointmentRequestPage = () => {
           </motion.div>
         </motion.div>
       </div>
+      {/* --- EMBEDDED ADMIN LOGIN MODAL (Dialog) --- */}
+      <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">
+              Admin Login
+            </DialogTitle>
+            <DialogDescription>
+              Enter your credentials to access the admin dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="loginUsernameOrEmail">Username or Email</Label>
+              <Input
+                id="loginUsernameOrEmail"
+                type="text"
+                placeholder="Enter username or email"
+                value={loginUsernameOrEmail}
+                onChange={(e) => setLoginUsernameOrEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="loginPassword">Password</Label>
+              <Input
+                id="loginPassword"
+                type="password"
+                placeholder="Enter password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loginLoading}>
+              {loginLoading ? "Signing In..." : "Sign In"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

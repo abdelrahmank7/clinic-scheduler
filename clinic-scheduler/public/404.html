@@ -4,16 +4,69 @@
     <meta charset="utf-8" />
     <title>Redirecting...</title>
     <script type="text/javascript">
-      var path = window.location.pathname;
-      var search = window.location.search;
-      var L = window.location.pathname.length;
+      // --- UPDATED 404 REDIRECT LOGIC ---
+      // This script attempts to redirect to the correct base path for SPAs deployed in subdirectories.
+      // It works by:
+      // 1. Getting the current full URL.
+      // 2. Determining the base path from the build (injected by Vite).
+      // 3. Calculating the relative path by removing the base path from the current URL path.
+      // 4. Storing the relative path in sessionStorage.
+      // 5. Redirecting the browser to the base path.
+      // The app's router (e.g., React Router) then handles the relative path.
 
-      var basePath = "/clinic-scheduler/";
+      // --- IMPORTANT: Ensure VITE_BASE_URL is correctly set during build ---
+      // This variable is injected by Vite based on the `base` config and .env files.
+      // For GitHub Pages deployment, it should be '/your-repo-name/' (e.g., '/clinic-scheduler/')
+      // For local dev, it should be '/'.
+      const VITE_BASE_URL = "{{BASE_URL}}"; // Placeholder replaced by Vite during build
 
-      sessionStorage.redirect = path.substring(basePath.length, L) + search;
+      // --- Safely determine the base path ---
+      let basePath = "/";
+      if (typeof VITE_BASE_URL === "string" && VITE_BASE_URL !== "/") {
+        // Ensure it starts and ends with '/'
+        basePath = "/" + VITE_BASE_URL.replace(/^\/+|\/+$/g, "") + "/";
+      }
 
+      // --- Get the current path relative to the domain ---
+      const currentPath = window.location.pathname;
+
+      // --- Calculate the relative path within the app ---
+      let relativePath = "/";
+      if (currentPath.startsWith(basePath)) {
+        relativePath = currentPath.substring(basePath.length);
+        // Ensure it starts with '/' but doesn't have a trailing slash unless it's the root
+        relativePath = "/" + relativePath.replace(/^\/+|\/+$/g, "");
+        if (relativePath === "/") relativePath = ""; // Normalize root
+      } else {
+        // If the current path doesn't start with the base path (unlikely if correctly deployed),
+        // fallback to redirecting to the base path itself.
+        console.warn(
+          "Current path does not start with expected base path. Redirecting to base."
+        );
+        relativePath = ""; // Redirect to base path
+      }
+
+      // --- Store the relative path for potential use by the app (optional, often handled by router) ---
+      // Using sessionStorage is common practice for SPAs on static hosts.
+      // The app can read this on initial load if needed, though React Router typically handles this.
+      try {
+        // Append the search params (query string) if they exist
+        const fullPath =
+          relativePath + (window.location.search ? window.location.search : "");
+        sessionStorage.redirect = fullPath;
+        console.log("Stored redirect path in sessionStorage:", fullPath);
+      } catch (e) {
+        console.error("Failed to store redirect path in sessionStorage:", e);
+        // Continue even if sessionStorage fails
+      }
+
+      // --- Perform the redirect to the base path ---
+      // This causes the browser to load the main index.html file from the correct location.
       window.location.replace(basePath);
     </script>
   </head>
-  <body></body>
+  <body>
+    <!-- If the script fails, this body will be shown briefly -->
+    <p>Redirecting...</p>
+  </body>
 </html>

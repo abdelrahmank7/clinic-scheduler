@@ -21,13 +21,14 @@ import ClosedDaysPage from "./pages/ClosedDaysPage";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import MainLayout from "@/components/layout/MainLayout";
 // --- Import the new public page ---
-import PublicAppointmentRequestPage from "./pages/PublicAppointmentRequestPage"; // <-- ADD THIS IMPORT
+import PublicAppointmentRequestPage from "./pages/PublicAppointmentRequestPage";
 // --- Import the existing admin page ---
-import AppointmentRequestsPage from "./pages/AppointmentRequestsPage"; // <-- KEEP THIS IMPORT
+import AppointmentRequestsPage from "./pages/AppointmentRequestsPage";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home } from "lucide-react"; // Import icons if used in NotFoundPage
-// --- Import the ErrorBoundary ---
-import ErrorBoundary from "@/components/ErrorBoundary"; // Import the ErrorBoundary component
+import { ArrowLeft, Home } from "lucide-react";
+// --- Import the new reports pages ---
+import ReportsPage from "./pages/ReportsPage"; // <-- ADD THIS IMPORT
+import ClientAttendanceReportPage from "./pages/ClientAttendanceReportPage"; // <-- ADD THIS IMPORT
 
 // --- Create a dedicated component for the 404 page ---
 const NotFoundPage = () => {
@@ -125,9 +126,10 @@ function AppContent() {
     // Using basename here can cause routing issues.
     // Make sure `base` in `vite.config.js` is set correctly (usually '/clinic-scheduler/')
     <Routes>
-      {/* Public Routes - Public Request Form is now the root, Admin Login is separate */}
-      <Route path="/" element={<PublicAppointmentRequestPage />} />{" "}
-      {/* <-- NEW ROOT ROUTE: PUBLIC FORM */}
+      {/* Public Routes - Admin Login and Public Request Form */}
+      {/* Revert root route to admin login */}
+      <Route path="/" element={<LoginPage />} />{" "}
+      {/* <-- REVERTED TO ADMIN LOGIN */}
       {/* Add the dedicated admin login route */}
       <Route path="/admin-login" element={<LoginPage />} />{" "}
       {/* <-- NEW ROUTE FOR ADMIN LOGIN */}
@@ -157,6 +159,12 @@ function AppContent() {
         <Route
           path="/appointment-requests"
           element={<AppointmentRequestsPage />}
+        />
+        {/* --- ADD REPORTS ROUTES HERE --- */}
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route
+          path="/reports/attendance"
+          element={<ClientAttendanceReportPage />}
         />
         {/* Catch-all route for unknown paths within protected admin area */}
         <Route path="*" element={<NotFoundPage />} />
@@ -194,10 +202,7 @@ function AppWrapper() {
       <ClinicProvider>
         {/* Remove PricingProvider wrapper */}
         {/* <PricingProvider> */} {/* <-- REMOVE THIS WRAPPER */}
-        {/* --- Wrap the entire application with ErrorBoundary --- */}
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
+        <AppContent />
         <Toaster />
         {/* </PricingProvider> */} {/* <-- REMOVE THIS WRAPPER */}
       </ClinicProvider>
